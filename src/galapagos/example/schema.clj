@@ -1,14 +1,13 @@
 (ns galapagos.example.schema
-  (:require [galapagos.schema :refer :all]
-            [schema.core :as s]))
+  (:require [galapagos.schema :refer :all]))
 
 
 (def AuthorType
   {:name        "Author"
    :description "The author of a blog post"
-   :fields      {:id        {:type s/Int}
-                 :firstname {:type s/Str}
-                 :lastname  {:type s/Str}}})
+   :fields      {:id        {:type GraphQLInt}
+                 :firstname {:type GraphQLString}
+                 :lastname  {:type GraphQLString}}})
 
 (declare PostType)
 
@@ -23,14 +22,14 @@
 (def PostType
   {:name        "Post"
    :description "A blog post"
-   :fields      {:id     {:type s/Int :description "The ID"}
-                 :title  {:type s/Str :description "The title"}
+   :fields      {:id     {:type GraphQLInt :description "The ID"}
+                 :title  {:type GraphQLString :description "The title"}
                  :author {:type AuthorFindField}}})
 
 
 (def PostFindField
   {:description "Finds a post by id"
-   :arguments   {:id {:type s/Int}}
+   :arguments   {:id {:type GraphQLInt}}
    :returns     PostType
 
    ; fields of find object are the same as for the type
