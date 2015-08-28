@@ -30,7 +30,6 @@
                        (let [field (get-in node [:fields (:name query) :type])]
                          (compile graph field query)))
                  (:fields query))]
-
     (if (schema/primitive? node)
       (->SolvableField node query fields)
       (->SolvableNode node query fields))))
