@@ -1,9 +1,7 @@
 (ns galapagos.core
   (:require [galapagos.query :as query]
             [galapagos.output :as output]
-            [galapagos.schema :as schema]
-            [plumbing.core :refer [fnk]]
-            [schema.core :as s])
+            [galapagos.schema :as schema])
   (:refer-clojure :exclude [compile]))
 
 (defprotocol Solvable
@@ -49,7 +47,7 @@
          {(:name query) {:solution solution
                          :fields   (when (not (nil? solution))
                                      (if (= (arity field) :many)
-                                       (mapv #(walk field %) solution)
+                                       (mapv (partial walk field) solution)
                                        (walk field solution)))}}))
      (get-in context [:query :fields])
      (get-in context [:fields]))))
@@ -61,7 +59,7 @@
        query/parse
        (compile graph root)
        walk
-       first                                                ; TODO: multiple query contexts?
+       first
        output/collect))
 
 
