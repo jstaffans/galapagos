@@ -28,6 +28,7 @@
                  :title  {:type schema/GraphQLString :description "The title"}
                  :author {:type FindAuthor}}})
 
+
 (schema/deffield FindPost
   {:description "Finds a post by id"
    :arguments   {:id {:type schema/GraphQLInt}}
@@ -37,9 +38,20 @@
                     {:id 1 :title "Some post"}
                     nil))})
 
+
+(schema/deffield FindPosts
+  {:description "Finds all posts"
+   :arguments   {}
+   :returns     [Post]
+   :solve       (fn [_]
+                  [{:id 1 :title "Some post"}
+                   {:id 2 :title "Another post"}])})
+
+
 (def QueryRoot
   {:name        "QueryRoot"
    :description "The query root for this schema"
-   :fields      {:post {:type FindPost}}})
+   :fields      {:post {:type FindPost}
+                 :posts {:type FindPosts}}})
 
 

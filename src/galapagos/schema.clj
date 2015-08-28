@@ -32,7 +32,9 @@
   `(def ~name
      (merge
        (if-let [ret# (:returns ~t)]
-         (assoc ~t :fields (:fields ret#))
+         (if (vector? ret#)
+           (assoc ~t :fields (:fields (first ret#)) :arity :many)
+           (assoc ~t :fields (:fields ret#) :arity :one))
          ~t)
          {:name (str (quote ~name))})))
 
