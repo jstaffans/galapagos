@@ -2,8 +2,7 @@
   (:require [galapagos.schema :as schema]))
 
 
-(schema/defenum Publisher
-  :packt :oreilly :springer)
+(schema/defenum Publisher :packt :oreilly :springer)
 
 
 (schema/deftype Author
