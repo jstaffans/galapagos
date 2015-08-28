@@ -55,6 +55,7 @@
      (get-in context [:fields]))))
 
 (defn execute
+  "Main entry point."
   [graph root query-string]
   (->> query-string
        query/parse
