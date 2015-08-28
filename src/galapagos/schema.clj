@@ -29,7 +29,12 @@
 
 (defmacro deffield
   [name t]
-  `(def ~name (merge ~t {:name (str (quote ~name))})))
+  `(def ~name
+     (merge
+       (if-let [ret# (:returns ~t)]
+         (assoc ~t :fields (:fields ret#))
+         ~t)
+         {:name (str (quote ~name))})))
 
 
 ; TODO: pre-processing

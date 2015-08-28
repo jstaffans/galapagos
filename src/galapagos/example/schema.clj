@@ -18,7 +18,7 @@
 (schema/deffield FindAuthor
   {:description "Finds the author of a post"
    :arguments   {:post Post}
-   :fields      (:fields Author)
+   :returns     Author
    :solve       (fn [_]
                   {:id 123 :name "Some Author" :publisher :oreilly})})
 
@@ -33,11 +33,6 @@
   {:description "Finds a post by id"
    :arguments   {:id {:type schema/GraphQLInt}}
    :returns     Post
-
-   ; fields of find object are the same as for the type
-   ; TODO: replace with pre-processing step based on :returns type
-   :fields      (:fields Post)
-
    :solve       (fn [{:keys [id]}]
                   (if (= 1 (Integer/valueOf id))
                     {:id 1 :title "Some post"}
