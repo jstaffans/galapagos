@@ -18,8 +18,8 @@
   {:description "Finds the author of a post"
    :arguments   {:post Post}
    :returns     Author
-   :solve       (fn [_]
-                  {:id 123 :name "Some Author" :publisher :oreilly})})
+   :solve       (fn [post]
+                  {:id 123 :name (str "Author Of " (:title post)) :publisher :oreilly})})
 
 
 (schema/deftype Post

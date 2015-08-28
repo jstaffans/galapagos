@@ -11,8 +11,9 @@
 
 (defrecord SolvableNode [node query fields]
   Solvable
-  (solve [_ _]
-    ((:solve node) (:args query))))
+  (solve [_ value]
+    ((fnil (:solve node) value) (:args query))))
+
 
 (defrecord SolvableField [field query fields]
   Solvable
