@@ -17,7 +17,7 @@
 (defrecord SolvableField [field query fields]
   Solvable
   (solve [_ value]
-    ; TODO: only strategy is to get a property by name (works with maps and records)
+    ; only strategy is to get a property by name (works with maps and records)
     (get value (:name query))))
 
 (defn compile

@@ -1,40 +1,42 @@
 (ns galapagos.example.schema
-  (:require [galapagos.schema :refer :all]))
+  (:require [galapagos.schema :as schema]))
 
 
-(def AuthorType
-  {:name        "Author"
-   :description "The author of a blog post"
-   :fields      {:id        {:type GraphQLInt}
-                 :firstname {:type GraphQLString}
-                 :lastname  {:type GraphQLString}}})
+(schema/defenum Publisher
+  :packt :oreilly :springer)
 
-(declare PostType)
 
-(def AuthorFindField
+(schema/deftype Author
+  {:fields {:id        {:type schema/GraphQLInt}
+            :name      {:type schema/GraphQLString}
+            :publisher {:type Publisher}}})
+
+
+(declare Post)
+
+
+(schema/deffield FindAuthor
   {:description "Finds the author of a post"
-   :arguments   {:post {:type PostType}}
-   :fields      (:fields AuthorType)
+   :arguments   {:post Post}
+   :fields      (:fields Author)
    :solve       (fn [_]
-                  {:id 123 :firstname "Some" :lastname "Author"})})
+                  {:id 123 :name "Some Author" :publisher :oreilly})})
 
 
-(def PostType
-  {:name        "Post"
-   :description "A blog post"
-   :fields      {:id     {:type GraphQLInt :description "The ID"}
-                 :title  {:type GraphQLString :description "The title"}
-                 :author {:type AuthorFindField}}})
+(schema/deftype Post
+  {:description "A blog post"
+   :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
+                 :title  {:type schema/GraphQLString :description "The title"}
+                 :author {:type FindAuthor}}})
 
-
-(def PostFindField
+(schema/deffield FindPost
   {:description "Finds a post by id"
-   :arguments   {:id {:type GraphQLInt}}
-   :returns     PostType
+   :arguments   {:id {:type schema/GraphQLInt}}
+   :returns     Post
 
    ; fields of find object are the same as for the type
    ; TODO: replace with pre-processing step based on :returns type
-   :fields      (:fields PostType)
+   :fields      (:fields Post)
 
    :solve       (fn [{:keys [id]}]
                   (if (= 1 (Integer/valueOf id))
@@ -44,6 +46,6 @@
 (def QueryRoot
   {:name        "QueryRoot"
    :description "The query root for this schema"
-   :fields      {:post {:type PostFindField}}})
+   :fields      {:post {:type FindPost}}})
 
 
