@@ -1,7 +1,9 @@
 (ns galapagos.core
   (:require [galapagos.query :as query]
             [galapagos.output :as output]
-            [plumbing.core :refer [fnk]])
+            [galapagos.schema :as schema]
+            [plumbing.core :refer [fnk]]
+            [schema.core :as s])
   (:refer-clojure :exclude [compile]))
 
 (defprotocol Solvable
@@ -26,10 +28,9 @@
                          (compile graph field query)))
                  (:fields query))]
 
-    ; TODO: only supporting primitive leaves currently
-    (if (and (map? node) (contains? node :fields))
-      (->SolvableNode node query fields)
-      (->SolvableField node query fields))))
+    (if (schema/primitive? node)
+      (->SolvableField node query fields)
+      (->SolvableNode node query fields))))
 
 ;; TODO: defer executions using Muse or similar
 (defn walk
