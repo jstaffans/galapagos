@@ -12,6 +12,7 @@
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
+    ; solve using either parent value or explicit argument
     ((fnil (:solve node) value) (:args query))))
 
 
