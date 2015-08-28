@@ -7,20 +7,23 @@
   (:refer-clojure :exclude [compile]))
 
 (defprotocol Solvable
-  (solve [this value]))
+  (solve [this value])
+  (arity [this]))
 
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
     ; solve using either parent value or explicit argument
-    ((fnil (:solve node) value) (:args query))))
-
+    ((fnil (:solve node) value) (:args query)))
+  (arity [_]
+    (:arity node)))
 
 (defrecord SolvableField [field query fields]
   Solvable
   (solve [_ value]
     ; only strategy is to get a property by name (works with maps and records)
-    (get value (:name query))))
+    (get value (:name query)))
+  (arity [_] :one))
 
 (defn compile
   "Compiles query into a walkable graph."
@@ -45,7 +48,9 @@
        (let [solution (solve field parent-solution)]
          {(:name query) {:solution solution
                          :fields   (when (not (nil? solution))
-                                     (walk field solution))}}))
+                                     (if (= (arity field) :many)
+                                       (mapv #(walk field %) solution)
+                                       (walk field solution)))}}))
      (get-in context [:query :fields])
      (get-in context [:fields]))))
 
