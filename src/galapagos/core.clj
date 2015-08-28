@@ -44,7 +44,7 @@
      (fn [query field]
        (let [solution (solve field parent-solution)]
          {(:name query) {:solution solution
-                         :fields   (when (not (empty? solution))
+                         :fields   (when (not (nil? solution))
                                      (walk field solution))}}))
      (get-in context [:query :fields])
      (get-in context [:fields]))))
