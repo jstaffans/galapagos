@@ -2,14 +2,11 @@
   (:require [clojure.walk :as walk])
   (:refer-clojure :exclude [spit]))
 
-;; TODO: do nested contexts work?
-
 (defn collect-fields [result]
   (let [fields (:fields result)]
     (into {} (walk/postwalk
-               #(if
-                 (and (:solution %) (empty? (:fields %)))
-                 (:solution %)
+               #(if-let [solution (:solution  %)]
+                 (if (empty? (:fields %)) solution (collect-fields %))
                  %)
                fields))))
 
