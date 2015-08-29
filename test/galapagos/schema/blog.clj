@@ -12,7 +12,7 @@
 
 (schema/deffield FindAuthor
   {:description "Finds the author of a post"
-   :arguments   {:post Post}
+   :args        {:post Post}
    :returns     Author
    :solve       (fn [post]
                   {:id 123 :name (str "Author Of " (:title post)) :preferredEditor :vim})})
@@ -25,7 +25,7 @@
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
-   :arguments   {:id {:type schema/GraphQLInt}}
+   :args        {:id schema/GraphQLInt}
    :returns     Post
    :solve       (fn [{:keys [id]}]
                   (if (= 1 (Integer/valueOf id))
@@ -34,7 +34,7 @@
 
 (schema/deffield FindPosts
   {:description "Finds all posts"
-   :arguments   {}
+   :args        {}
    :returns     [Post]
    :solve       (fn [_]
                   [{:id 1 :title "Some post"}

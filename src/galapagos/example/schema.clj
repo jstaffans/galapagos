@@ -16,10 +16,10 @@
 
 (schema/deffield FindAuthor
   {:description "Finds the author of a post"
-   :arguments   {:post Post}
+   :args        {:id schema/GraphQLInt}
    :returns     Author
-   :solve       (fn [post]
-                  {:id 123 :name (str "Author Of " (:title post)) :publisher :oreilly})})
+   :solve       (fn [{:keys [id]}]
+                  {:id 123 :name (str "Author Of Post #" id) :publisher :oreilly})})
 
 
 (schema/deftype Post
@@ -31,7 +31,7 @@
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
-   :arguments   {:id {:type schema/GraphQLInt}}
+   :args        {:id schema/GraphQLInt}
    :returns     Post
    :solve       (fn [{:keys [id]}]
                   (if (= 1 (Integer/valueOf id))
@@ -41,7 +41,7 @@
 
 (schema/deffield FindPosts
   {:description "Finds all posts"
-   :arguments   {}
+   :args        {}
    :returns     [Post]
    :solve       (fn [_]
                   [{:id 1 :title "Some post"}
@@ -51,7 +51,7 @@
 (def QueryRoot
   {:name        "QueryRoot"
    :description "The query root for this schema"
-   :fields      {:post {:type FindPost}
+   :fields      {:post  {:type FindPost}
                  :posts {:type FindPosts}}})
 
 
