@@ -1,6 +1,6 @@
 (ns galapagos.core
-  (:require [galapagos.query :as query]
-            [galapagos.output :as output]
+  (:require [galapagos.query :refer [parse]]
+            [galapagos.output :refer [collect]]
             [galapagos.schema :as schema])
   (:refer-clojure :exclude [compile]))
 
@@ -23,19 +23,19 @@
     (get value (:name query)))
   (arity [_] :one))
 
-(defn compile
+(defn- compile-to-walkable
   "Compiles query into a walkable graph."
-  [graph node query]
+  [node query]
   (let [fields (mapv (fn [query]
                        (let [field (get-in node [:fields (:name query) :type])]
-                         (compile graph field query)))
+                         (compile-to-walkable field query)))
                  (:fields query))]
     (if (schema/primitive? node)
       (->SolvableField node query fields)
       (->SolvableNode node query fields))))
 
 ;; TODO: defer executions using Muse or similar
-(defn walk
+(defn- walk
   "Walks the graph, providing solutions as inputs to child elements.
    The result is a solved context."
   ([context] (walk context {}))
@@ -53,12 +53,8 @@
 
 (defn execute
   "Main entry point."
-  [graph root query-string]
-  (->> query-string
-       query/parse
-       (compile graph root)
-       walk
-       first
-       output/collect))
+  [{:keys [root]} query]
+  (let [compile (partial compile-to-walkable root)]
+    (->> query parse compile walk first collect)))
 
 

@@ -39,10 +39,10 @@
          {:name (str (quote ~name))})))
 
 
-; TODO: pre-processing
-
+;M TODO: pre-processing
+;; TODO: schema is not really needed for execution, but for validation and introspection it probably will be
 (defn create-schema
   [root]
-  {:root root})
+  {:schema root :root root})
 
 

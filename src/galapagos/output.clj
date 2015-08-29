@@ -13,15 +13,12 @@
 (defn- collect-fields [result]
   (let [fields (if (many-results? result)
                  (map (partial into {}) (:fields result))
-                 (into {} (:fields result)))]
-    (walk/postwalk
-      (fn [field]
-        (if-let [solution (:solution field)]
-          (if (leaf? field)
-            solution
-            (collect-fields field))
-          field))
-      fields)))
+                 (into {} (:fields result)))
+        keep-solutions (fn [field]
+                         (if-let [solution (:solution field)]
+                           (if (leaf? field) solution (collect-fields field))
+                           field))]
+    (walk/postwalk keep-solutions fields)))
 
 (defn collect
   "Collects a solved context into a simple map."
