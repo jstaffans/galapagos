@@ -83,6 +83,7 @@
                          :query  {:fields [{:name :name}]}
                          :fields []}]}]})
 
+  ; Not taking advantage of Solvable protocol currently
   (defn traverse
     ([graph] (traverse graph [:solution {}]))
     ([graph [_ parent]]
