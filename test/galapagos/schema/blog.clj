@@ -1,5 +1,6 @@
 (ns galapagos.schema.blog
-  (:require [galapagos.schema :as schema]))
+  (:require [galapagos.schema :as schema]
+            [clojure.core.async :as async]))
 
 (schema/defenum PreferredEditor :vim :emacs :sublime)
 
@@ -15,7 +16,8 @@
    :args        {:post Post}
    :returns     Author
    :solve       (fn [post]
-                  {:id 123 :name (str "Author Of " (:title post)) :preferredEditor :vim})})
+                  (async/go
+                    {:id 123 :name (str "Author Of " (:title post)) :preferredEditor :vim}))})
 
 (schema/deftype Post
   {:description "A blog post"
@@ -28,17 +30,19 @@
    :args        {:id schema/GraphQLInt}
    :returns     Post
    :solve       (fn [{:keys [id]}]
-                  (if (= 1 (Integer/valueOf id))
-                    {:id 1 :title "Some post"}
-                    nil))})
+                  (async/go
+                    (if (= 1 (Integer/valueOf id))
+                      {:id 1 :title "Some post"}
+                      nil)))})
 
 (schema/deffield FindPosts
   {:description "Finds all posts"
    :args        {}
    :returns     [Post]
    :solve       (fn [_]
-                  [{:id 1 :title "Some post"}
-                   {:id 2 :title "Another post"}])})
+                  (async/go
+                    [{:id 1 :title "Some post"}
+                     {:id 2 :title "Another post"}]))})
 
 (def QueryRoot
   {:name        "QueryRoot"

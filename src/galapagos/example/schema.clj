@@ -1,5 +1,6 @@
 (ns galapagos.example.schema
-  (:require [galapagos.schema :as schema]))
+  (:require [galapagos.schema :as schema]
+            [clojure.core.async :as async]))
 
 
 (schema/defenum Publisher :packt :oreilly :springer)
@@ -11,7 +12,8 @@
             :publisher {:type Publisher}}})
 
 
-(declare Post)
+(schema/deftype Country
+  {:fields {:name {:type schema/GraphQLString}}})
 
 
 (schema/deffield FindAuthor
@@ -19,14 +21,22 @@
    :args        {:id schema/GraphQLInt}
    :returns     Author
    :solve       (fn [{:keys [id]}]
-                  {:id 123 :name (str "Author Of Post #" id) :publisher :oreilly})})
+                  (async/go
+                    {:id 123 :name (str "Author Of Post #" id) :publisher :oreilly}))})
 
+
+(schema/deffield FindCountry
+  {:description "Finds the country of an author"
+   :args        {:id schema/GraphQLInt}
+   :returns     Country
+   :solve       (fn [{:keys [id]}]
+                  (async/go
+                    {:name (str "Country Of #" id)}))})
 
 (schema/deftype Post
   {:description "A blog post"
    :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
-                 :title  {:type schema/GraphQLString :description "The title"}
-                 :author {:type FindAuthor}}})
+                 :title  {:type schema/GraphQLString :description "The title"}}})
 
 
 (schema/deffield FindPost
@@ -34,9 +44,10 @@
    :args        {:id schema/GraphQLInt}
    :returns     Post
    :solve       (fn [{:keys [id]}]
-                  (if (= 1 (Integer/valueOf id))
-                    {:id 1 :title "Some post"}
-                    nil))})
+                  (async/go
+                    (if (= 1 (Integer/valueOf id))
+                      {:id 1 :title "Some post"}
+                      nil)))})
 
 
 (schema/deffield FindPosts
