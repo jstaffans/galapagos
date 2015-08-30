@@ -55,6 +55,19 @@
      (get-in context [:query :fields])
      (get-in context [:fields]))))
 
+(defn traverse
+  "Traverse graph with muse."
+  ([graph] (traverse graph [:solution {}]))
+  ([graph [_ parent]]
+   (let [query (some-> graph :query :fields first)
+         args (merge (:args query) parent)
+         field (some-> graph :fields first)]
+     (if (nil? field)
+       (muse/value (select-keys parent [(:name query)]))
+       (muse/traverse (fn [solution]
+                        (muse/fmap #(assoc {} (:name query) %) (traverse field solution)))
+         (muse/fmap #(assoc {} :solution %) (schema/->DataSource (:node graph) args)))))))
+
 (defn execute
   "Main entry point."
   [{:keys [root]} query]
@@ -66,36 +79,32 @@
 
 (comment
   ; Muse traversal
-
   (def graph
-    {:node   galapagos.example.schema/FindPost
-     :query  {:fields [{:name :post :args {:id 1}}]}
-     :fields [{:field  schema.core/Str
-               :query  {:fields [{:name :title}]}
-               :fields []}]})
+    (galapagos.core/map->SolvableNode
+      {:node   galapagos.example.schema/FindPost
+       :query  {:fields [{:name :post :args {:id 1}}]}
+       :fields [(galapagos.core/map->SolvableField
+                  {:field  galapagos.schema/GraphQLString
+                   :query  {:fields [{:name :title}]}
+                   :fields []})]}))
+
+  (def graph-with-list
+    (galapagos.core/map->SolvableNode
+      {:node   galapagos.example.schema/FindPosts
+       :query  {:fields [{:name :post :args {}}]}
+       :fields [(galapagos.core/map->SolvableField
+                  {:field  galapagos.schema/GraphQLString
+                   :query  {:fields [{:name :title}]}
+                   :fields []})]}))
 
   (def nested-graph
-    {:node   galapagos.example.schema/FindPost
-     :query  {:fields [{:name :post :args {:id 1}}]}
-     :fields [{:node   galapagos.example.schema/FindAuthor
-               :query  {:fields [{:name :author :args {}}]}
-               :fields [{:field  schema.core/Str
-                         :query  {:fields [{:name :name}]}
-                         :fields []}]}]})
-
-  ; Not taking advantage of Solvable protocol currently
-  (defn traverse
-    ([graph] (traverse graph [:solution {}]))
-    ([graph [_ parent]]
-     (let [query (some-> graph :query :fields first)
-           args  (merge (:args query) parent)
-           field (some-> graph :fields first)]
-       (if (nil? field)
-         (muse/value (select-keys parent [(:name query)]))
-         (muse/traverse (fn [solution]
-                          (muse/fmap #(assoc {} (:name query) %) (traverse field solution)))
-           (muse/fmap #(assoc {} :solution %) (schema/->DataSource (:node graph) args)))))))
-
-
-
-)
+    (galapagos.core/map->SolvableNode
+      {:node   galapagos.example.schema/FindPost
+       :query  {:fields [{:name :post :args {:id 1}}]}
+       :fields [(galapagos.core/map->SolvableNode
+                  {:node   galapagos.example.schema/FindAuthor
+                   :query  {:fields [{:name :author :args {}}]}
+                   :fields [(galapagos.core/map->SolvableField
+                              {:field  galapagos.schema/GraphQLString
+                               :query  {:fields [{:name :name}]}
+                               :fields []})]})]})))
