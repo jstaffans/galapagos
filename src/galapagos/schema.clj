@@ -1,5 +1,6 @@
 (ns galapagos.schema
-  (:require [schema.core :as s])
+  (:require [schema.core :as s]
+            [muse.core :as muse])
   (:import (schema.core Predicate))
   (:refer-clojure :exclude [deftype]))
 
@@ -37,6 +38,15 @@
            (assoc ~t :fields (:fields ret#) :arity :one))
          ~t)
          {:name (str (quote ~name))})))
+
+
+(defrecord DataSource [field args]
+  muse/DataSource
+  (fetch [_]
+    ((:solve field) args))
+
+  muse/LabeledSource
+  (resource-id [_] args))
 
 
 ;M TODO: pre-processing
