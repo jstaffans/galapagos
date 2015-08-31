@@ -55,8 +55,9 @@
    :args        {}
    :returns     [Post]
    :solve       (fn [_]
-                  [{:id 1 :title "Some post"}
-                   {:id 2 :title "Another post"}])})
+                  (async/go
+                    [{:id 1 :title "Some post"}
+                     {:id 2 :title "Another post"}]))})
 
 
 (def QueryRoot
