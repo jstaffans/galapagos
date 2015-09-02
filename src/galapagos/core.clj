@@ -162,10 +162,9 @@
        acc-fn
        (apply (partial muse/fmap
                 (fn [& muses]
+                  ; merge the sibling muses into one list
                   (if (= (arity graph) :one)
                     (into {} muses)
-
-                    ; merge the sibling muses into one list
                     (apply (partial map merge) muses))))
          (map #(traverse-fn graph % parent) fields))))))
 
