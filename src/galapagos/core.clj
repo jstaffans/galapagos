@@ -55,7 +55,7 @@
    Example:
 
    [#SolvableField{:fields [GraphQLInt], :key-names [:id]}
-    #SolvableField{:fields [GraphQLString], :key-names [:name]]
+    #SolvableField{:fields [GraphQLString], :key-names [:name]}]
 
     -> [#SolvableField{:fields [GraphQLInt GraphQLString], :key-names [:id :name]}]
    "
