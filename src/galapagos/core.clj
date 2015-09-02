@@ -62,6 +62,8 @@
        (if (schema/primitive? node)
          (->SolvableField node [(:name query)])
          (->SolvableMuseNode node query fields))))))
+
+;; deprecated for execution - might be a good approach for introspection though
 (defn- walk
   "Walks the graph, providing solutions as inputs to child elements.
    The result is a solved context. This is a naive approach and not
