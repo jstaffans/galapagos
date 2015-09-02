@@ -10,38 +10,64 @@
   (solve [this value])
   (arity [this]))
 
-(defrecord SolvableNode [node query fields]
+(defprotocol Visited
+  (done? [this]))
+
+;; Wraps the solution as a muse DataSource
+(defrecord SolvableMuseNode [node query fields]
   Solvable
   (solve [_ value]
-    ; solve using either parent value or explicit argument
-    (let [solution ((fnil (:solve node) value) (:args query))]
-      (async/<!! solution)))
-  (arity [_]
-    (:arity node)))
+    (let [args (merge (:args query) value)]
+      (schema/->DataSource node args)))
 
+  (arity [_]
+    (:arity node))
+
+  Visited
+  (done? [_] false))
 
 (defrecord SolvableField [field query fields]
   Solvable
   (solve [_ value]
     ; only strategy is to get a property by name (works with maps and records)
     (get value (:name query)))
-  (arity [_] :one))
+
+  (arity [_] :one)
+
+  Visited
+  (done? [_] true))
+
+;; Muse wrapper for SolvableField
+(defrecord FieldDataSource [field parent]
+  muse/DataSource
+  (fetch [_]
+    (async/go (solve field parent)))
+
+  muse/LabeledSource
+  (resource-id [_] parent))
 
 
-(defn- compile-to-walkable
-  "Compiles query into a walkable graph."
-  [node query]
-  (let [fields (mapv (fn [query]
-                       (let [field (get-in node [:fields (:name query) :type])]
-                         (compile-to-walkable field query)))
-                 (:fields query))]
-    (if (schema/primitive? node)
-      (->SolvableField node query fields)
-      (->SolvableNode node query fields))))
+(defn- compile
+  "Compiles query into a traversable graph."
+  ([root query] (compile root root query))
+  ([root node query]
+    (let [fields (mapv (fn [query]
+                         (let [field (get-in node [:fields (:name query) :type])]
+                           (compile root field query)))
+                   (:fields query))]
+      ;; Don't return the query root of the schema, instead return
+      ;; the first subtree (the actual query) which is easier to traverse.
+      (if (= root node)
+        (first fields)
+
+        (if (schema/primitive? node)
+          (->SolvableField node query fields)
+          (->SolvableMuseNode node query fields))))))
 
 (defn- walk
   "Walks the graph, providing solutions as inputs to child elements.
-   The result is a solved context."
+   The result is a solved context. This is a naive approach and not
+   as efficient as traversal with muse (see the traverse function)."
   ([context] (walk context {}))
   ([context parent-solution]
    (mapv
@@ -55,56 +81,92 @@
      (get-in context [:query :fields])
      (get-in context [:fields]))))
 
+
+(declare traverse)
+
+(defn traverse-one
+  [graph fields parent]
+  (if (done? graph)
+    (->FieldDataSource graph parent)
+
+    (muse/flat-map
+      (fn [solution]
+        ;; TODO: support multiple fields
+        (traverse (first fields) solution))
+      (solve graph parent))))
+
+(defn traverse-many
+  [graph field parent]
+  (muse/traverse
+    (fn [solution]
+      (traverse field solution))
+    (solve graph parent)))
+
 (defn traverse
-  "Traverse graph with muse."
-  ([graph] (traverse graph [:solution {}]))
-  ([graph [_ parent]]
-   (let [query (some-> graph :query :fields first)
-         args (merge (:args query) parent)
-         field (some-> graph :fields first)]
-     (if (nil? field)
-       (muse/value (select-keys parent [(:name query)]))
-       (muse/traverse (fn [solution]
-                        (muse/fmap #(assoc {} (:name query) %) (traverse field solution)))
-         (muse/fmap #(assoc {} :solution %) (schema/->DataSource (:node graph) args)))))))
+  ([graph] (traverse graph {}))
+  ([graph parent]
+   (let [query (:query graph)
+         fields (:fields graph)]
+     (muse/fmap #(assoc {} (:name query) %)
+       (if (= (arity graph) :one)
+         (traverse-one graph fields parent)
+         (traverse-many graph fields parent))))))
 
 (defn execute
   "Main entry point."
-  [{:keys [root]} query]
-  (let [compile (partial compile-to-walkable root)]
-    (->> query parse compile walk first collect)
-    ; (->> query parse compile walk)
-    ))
+  [{:keys [root]} query-string]
+  (let [query (parse query-string)
+        graph (compile root query)]
+    (traverse graph)))
 
 
+;; Example graphs that can be traversed with muse
 (comment
-  ; Muse traversal
+  ;; (muse/run!! (traverse graph))
   (def graph
-    (galapagos.core/map->SolvableNode
+    (galapagos.core/map->SolvableMuseNode
       {:node   galapagos.example.schema/FindPost
-       :query  {:fields [{:name :post :args {:id 1}}]}
+       :query  {:name :post :args {:id 1}}
        :fields [(galapagos.core/map->SolvableField
                   {:field  galapagos.schema/GraphQLString
-                   :query  {:fields [{:name :title}]}
+                   :query  {:name :title}
                    :fields []})]}))
 
+
+  ;; TODO: make this work
+  ;; (muse/run!! (traverse graph-with-multiple-leaves))
+  (def graph-with-multiple-leaves
+    (galapagos.core/map->SolvableMuseNode
+      {:node   galapagos.example.schema/FindPost
+       :query  {:name :post :args {:id 1}}
+       :fields [(galapagos.core/map->SolvableField
+                  {:field  galapagos.schema/GraphQLInt
+                   :query  {:name :id}
+                   :fields []})
+                (galapagos.core/map->SolvableField
+                  {:field  galapagos.schema/GraphQLString
+                   :query  {:name :title}
+                   :fields []})]}))
+
+  ;; (muse/run!! (traverse graph-with-list))
   (def graph-with-list
-    (galapagos.core/map->SolvableNode
+    (galapagos.core/map->SolvableMuseNode
       {:node   galapagos.example.schema/FindPosts
-       :query  {:fields [{:name :post :args {}}]}
+       :query  {:name :posts :args {}}
        :fields [(galapagos.core/map->SolvableField
                   {:field  galapagos.schema/GraphQLString
-                   :query  {:fields [{:name :title}]}
+                   :query  {:name :title}
                    :fields []})]}))
 
+  ;; (muse/run!! (traverse nested-graph))
   (def nested-graph
-    (galapagos.core/map->SolvableNode
+    (galapagos.core/map->SolvableMuseNode
       {:node   galapagos.example.schema/FindPost
-       :query  {:fields [{:name :post :args {:id 1}}]}
-       :fields [(galapagos.core/map->SolvableNode
+       :query  {:name :post :args {:id 1}}
+       :fields [(galapagos.core/map->SolvableMuseNode
                   {:node   galapagos.example.schema/FindAuthor
-                   :query  {:fields [{:name :author :args {}}]}
+                   :query  {:name :author :args {}}
                    :fields [(galapagos.core/map->SolvableField
                               {:field  galapagos.schema/GraphQLString
-                               :query  {:fields [{:name :name}]}
+                               :query  {:name :name}
                                :fields []})]})]})))
