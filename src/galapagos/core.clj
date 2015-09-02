@@ -109,7 +109,15 @@
      (get-in context [:fields]))))
 
 
+
+(defn- empty-node?
+  "Check if a node is empty (either lacks a solution or doesn't have any children).
+  We can stop the recursion in this case and return an empty result."
+  [field solution]
+  (or (empty? solution) (empty? (:fields field))))
+
 (declare traverse)
+
 
 (defn traverse-one
   [graph field parent]
@@ -120,7 +128,9 @@
 
     (muse/flat-map
       (fn [solution]
-        (traverse field solution))
+        (if (empty-node? field solution)
+          (muse/value {})
+          (traverse field solution)))
       (solve graph parent))))
 
 (defn traverse-many
@@ -129,7 +139,9 @@
   ;; Use muse/traverse to iterate over all of them.
   (muse/traverse
     (fn [solution]
-      (traverse field solution))
+      (if (empty-node? field solution)
+          (muse/value {})
+          (traverse field solution)))
     (solve graph parent)))
 
 (defn traverse
@@ -156,6 +168,7 @@
                     ; merge the sibling muses into one list
                     (apply (partial map merge) muses))))
          (map #(traverse-fn graph % parent) fields))))))
+
 
 
 ;; Example graphs that can be traversed with muse
