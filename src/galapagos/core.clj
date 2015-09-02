@@ -1,6 +1,5 @@
 (ns galapagos.core
   (:require [galapagos.query :refer [parse]]
-            [galapagos.output :refer [collect]]
             [galapagos.schema :as schema]
             [clojure.core.async :as async]
             [muse.core :as muse])

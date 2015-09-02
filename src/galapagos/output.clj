@@ -2,6 +2,9 @@
   (:require [clojure.walk :as walk])
   (:refer-clojure :exclude [spit]))
 
+;; This namespace is no longer needed because muse handles resolution all the way down.
+;; Could be useful for introspection though ..
+
 (defn- many-results?
   [result]
   (vector? (:solution result)))
