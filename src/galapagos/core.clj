@@ -50,19 +50,18 @@
   "Compiles query into a traversable graph."
   ([root query] (compile root root query))
   ([root node query]
-    (let [fields (mapv (fn [query]
-                         (let [field (get-in node [:fields (:name query) :type])]
-                           (compile root field query)))
-                   (:fields query))]
-      ;; Don't return the query root of the schema, instead return
-      ;; the first subtree (the actual query) which is easier to traverse.
-      (if (= root node)
-        (first fields)
+   (let [fields (mapv (fn [query]
+                        (let [field (get-in node [:fields (:name query) :type])]
+                          (compile root field query)))
+                  (:fields query))]
+     ;; Don't return the query root of the schema, instead return
+     ;; the first subtree (the actual query) which is easier to traverse.
+     (if (= root node)
+       (first fields)
 
-        (if (schema/primitive? node)
-          (->SolvableField node query fields)
-          (->SolvableMuseNode node query fields))))))
-
+       (if (schema/primitive? node)
+         (->SolvableField node [(:name query)])
+         (->SolvableMuseNode node query fields))))))
 (defn- walk
   "Walks the graph, providing solutions as inputs to child elements.
    The result is a solved context. This is a naive approach and not
