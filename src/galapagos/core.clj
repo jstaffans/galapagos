@@ -37,8 +37,12 @@
       (reify
         muse/DataSource
         (fetch [_]
+          ;; modify the solution with a transducer that maps the solution
+          ;; to the type of the node. Easier to deal with in child nodes.
           (let [result-chan (async/chan 1
                               (map (fn [solution]
+                                     ;; If we're getting a primitive, there won't be any child nodes.
+                                     ;; Just return the raw solution.
                                      (if (solves-to-primitive? this)
                                        solution
                                        (if (vector? solution)
