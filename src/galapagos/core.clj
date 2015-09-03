@@ -13,7 +13,6 @@
 (defprotocol Visited
   (done? [this]))
 
-;; Wraps the solution as a muse DataSource
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
