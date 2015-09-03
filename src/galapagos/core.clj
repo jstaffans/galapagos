@@ -14,6 +14,7 @@
   (acc-fn [this]))
 
 (defprotocol Visited
+  (solves-to-primitive? [this])
   (done? [this]))
 
 (defrecord SolvableRoot [node fields]
@@ -24,18 +25,26 @@
   (acc-fn [_] #(assoc {} :data %))
 
   Visited
+  (solves-to-primitive? [_] false)
   (done? [_] false))
 
 
 (defrecord SolvableNode [node query fields]
   Solvable
-  (solve [_ value]
+  (solve [this value]
     ;; if we don't have arguments, solve using the parent value
     (let [args (merge (:args query) value)]
       (reify
         muse/DataSource
         (fetch [_]
-          ((:solve node) args))
+          (let [result-chan (async/chan 1
+                              (map (fn [solution]
+                                     (if (solves-to-primitive? this)
+                                       solution
+                                       (if (vector? solution)
+                                         (into [] (map #(assoc {} (:type node) %) solution))
+                                         (assoc {} (:type node) solution))))))]
+            (async/pipe ((:solve node) args) result-chan)))
 
         muse/LabeledSource
         (resource-id [_] args))))
@@ -50,12 +59,16 @@
     #(assoc {} (or (:alias query) (:name query)) %))
 
   Visited
-  (done? [_] false))
+  ;; Nodes may solve to a primitive
+  (solves-to-primitive? [_] (schema/primitive? (:returns node)))
+  (done? [this] (solves-to-primitive? this)))
 
 (defrecord SolvableField [fields key-names]
   Solvable
   (solve [_ value]
-    (let [solution (reduce #(assoc %1 %2 (get value %2)) {} key-names)]
+    ;; value is the parent map from which we are fetching keys.
+    ;; It'll be in the form of {:parent { .. fields .. }}
+    (let [solution (reduce #(assoc %1 %2 (get (first (vals value)) %2)) {} key-names)]
       (reify
         muse/DataSource
         (fetch [_] (async/go solution))
@@ -71,6 +84,8 @@
   (acc-fn [_] #(into {} %))
 
   Visited
+  ;; Fields are records or maps, not primitives
+  (solves-to-primitive? [_] false)
   (done? [_] true))
 
 
@@ -170,7 +185,15 @@
           (traverse field solution)))
     (solve graph parent)))
 
-(defn traverse
+(defmulti merge-siblings (fn [graph _] (arity graph)))
+
+(defmethod merge-siblings :one [graph muses] (if (solves-to-primitive? graph)
+                                               (first muses)
+                                               (into {} muses)))
+
+(defmethod merge-siblings :many [_ muses] (apply (partial map merge) muses))
+
+(defn- traverse
   ([graph] (traverse graph {}))
   ([graph parent]
    (muse/fmap
@@ -178,9 +201,7 @@
      (apply (partial muse/fmap
               (fn [& muses]
                 ; merge the sibling muses into one list
-                (if (= (arity graph) :one)
-                  (into {} muses)
-                  (apply (partial map merge) muses))))
+                (merge-siblings graph muses)))
        (map #((traverse-fn graph) graph % parent) (:fields graph))))))
 
 

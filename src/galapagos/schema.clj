@@ -28,14 +28,12 @@
 
 (defmacro deffield
   [name t]
-  `(def ~name
-     (merge
-       (if-let [ret# (:returns ~t)]
-         (if (vector? ret#)
-           (assoc ~t :fields (:fields (first ret#)) :arity :many)
-           (assoc ~t :fields (:fields ret#) :arity :one))
-         ~t)
-         {:name (str (quote ~name))})))
+  (let [ret (:returns t)
+        [type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
+    `(def ~name
+       (merge
+         (assoc ~t :fields (:fields ~type) :type '~type :arity ~arity)
+         {:name (str (quote ~name))}))))
 
 
 ;; TODO: pre-processing

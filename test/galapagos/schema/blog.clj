@@ -4,9 +4,21 @@
 
 (schema/defenum PreferredEditor :vim :emacs :sublime)
 
+(declare Author)
+
+
+(schema/deffield ProfilePicture
+  {:description "Returns the profile picture of the desired size."
+   :args        {:author Author :size schema/GraphQLString}
+   :returns     schema/GraphQLString
+   :solve       (fn [{:keys [size] :as args}]
+                  (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
+
+
 (schema/deftype Author
   {:fields {:id              {:type schema/GraphQLInt}
             :name            {:type schema/GraphQLString}
+            :profilePicture  {:type ProfilePicture}
             :preferredEditor {:type PreferredEditor}}})
 
 (declare Post)
@@ -15,9 +27,9 @@
   {:description "Finds the author of a post"
    :args        {:post Post}
    :returns     Author
-   :solve       (fn [post]
+   :solve       (fn [args]
                   (async/go
-                    {:id 123 :name (str "Author Of " (:title post)) :preferredEditor :vim}))})
+                    {:id 123 :name (str "Author Of " (get-in args ['Post :title])) :preferredEditor :vim}))})
 
 (schema/deftype Post
   {:description "A blog post"
