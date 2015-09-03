@@ -18,7 +18,7 @@
 
 (defrecord SolvableRoot [node fields]
   Solvable
-  (solve [_ _] (muse/value {}))
+  (solve [_ _] (throw (IllegalStateException. "Root node should not be directly solved!")))
   (arity [_] :one)
   (traverse-fn [_] traverse-root)
   (acc-fn [_] #(assoc {} :data %))
@@ -182,21 +182,6 @@
                   (into {} muses)
                   (apply (partial map merge) muses))))
        (map #((traverse-fn graph) graph % parent) (:fields graph))))))
-
-
-
-;; Example graphs that can be traversed with muse
-(comment
-
-  ;; (muse/run!! (traverse simple-graph))
-  (def simple-graph
-    (galapagos.core/map->SolvableNode
-      {:node   galapagos.example.schema/FindPost
-       :query  {:name :post :args {:id 1}}
-
-       :fields [(galapagos.core/map->SolvableField
-                  {:fields    [galapagos.schema/GraphQLString]
-                   :key-names [:title]})]})))
 
 
 (defn execute!
