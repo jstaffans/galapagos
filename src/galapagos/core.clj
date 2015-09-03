@@ -7,21 +7,31 @@
 
 (defprotocol Solvable
   (solve [this value])
-  (arity [this]))
+  (arity [this])
+  (acc-fn [this]))
 
 (defprotocol Visited
   (done? [this]))
 
 ;; Wraps the solution as a muse DataSource
-(defrecord SolvableMuseNode [node query fields]
+(defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
     ;; if we don't have arguments, solve using the parent value
     (let [args (merge (:args query) value)]
-      (schema/->DataSource node args)))
+      (reify
+        muse/DataSource
+        (fetch [_]
+          ((:solve node) args))
 
-  (arity [_]
-    (:arity node))
+        muse/LabeledSource
+        (resource-id [_] args))))
+
+  (arity [_] (:arity node))
+
+  ;; At solvable nodes, we introduce a new level of nesting
+  (acc-fn [_]
+    #(assoc {} (or (:alias query) (:name query)) %))
 
   Visited
   (done? [_] false))
@@ -29,22 +39,21 @@
 (defrecord SolvableField [fields key-names]
   Solvable
   (solve [_ value]
-    ; only strategy is to get properties by name (works with maps and records)
-    (reduce #(assoc %1 %2 (get value %2)) {} key-names))
+    (let [solution (reduce #(assoc %1 %2 (get value %2)) {} key-names)]
+      (reify
+        muse/DataSource
+        (fetch [_] (async/go solution))
+
+        muse/LabeledSource
+        (resource-id [_] value))))
 
   (arity [_] :one)
 
+  ;; At leaves, we use the result directly
+  (acc-fn [_] #(into {} %))
+
   Visited
   (done? [_] true))
-
-;; Muse wrapper for SolvableField
-(defrecord FieldDataSource [field parent]
-  muse/DataSource
-  (fetch [_]
-    (async/go (solve field parent)))
-
-  muse/LabeledSource
-  (resource-id [_] parent))
 
 
 (defn- merge-children
@@ -88,7 +97,7 @@
 
        (if (schema/primitive? node)
          (->SolvableField [node] [(:name query)])
-         (->SolvableMuseNode node query (merge-children fields)))))))
+         (->SolvableNode node query (merge-children fields)))))))
 
 ;; deprecated for execution - might be a good approach for introspection though
 (defn- walk
@@ -110,13 +119,12 @@
 
 
 
+(declare traverse)
 (defn- empty-node?
   "Check if a node is empty (either lacks a solution or doesn't have any children).
   We can stop the recursion in this case and return an empty result."
   [field solution]
   (or (empty? solution) (empty? (:fields field))))
-
-(declare traverse)
 
 
 (defn traverse-one
@@ -124,7 +132,7 @@
   ;; Solution is either a leaf node (which we'll solve directly,
   ;; terminating the recursion) or a single new traversable node.
   (if (done? graph)
-    (->FieldDataSource graph parent)
+    (solve graph parent)
 
     (muse/flat-map
       (fn [solution]
@@ -147,19 +155,11 @@
 (defn traverse
   ([graph] (traverse graph {}))
   ([graph parent]
-   (let [query (:query graph)
-         fields (:fields graph)
-
-         ;; at leaf nodes, we use the result directly. Otherwise we introduce
-         ;; a new level of nesting for each level of recursion.
-         acc-fn (if (done? graph)
-                  #(into {} %)
-                  #(assoc {} (or (:alias query) (:name query)) %))
-
+   (let [fields (:fields graph)
          traverse-fn (if (= (arity graph) :many) traverse-many traverse-one)]
 
      (muse/fmap
-       acc-fn
+       (acc-fn graph)
        (apply (partial muse/fmap
                 (fn [& muses]
                   ; merge the sibling muses into one list
@@ -175,7 +175,7 @@
 
   ;; (muse/run!! (traverse simple-graph))
   (def simple-graph
-    (galapagos.core/map->SolvableMuseNode
+    (galapagos.core/map->SolvableNode
       {:node   galapagos.example.schema/FindPost
        :query  {:name :post :args {:id 1}}
 

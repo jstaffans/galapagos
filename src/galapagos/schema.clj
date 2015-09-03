@@ -38,16 +38,7 @@
          {:name (str (quote ~name))})))
 
 
-(defrecord DataSource [field args]
-  muse/DataSource
-  (fetch [_]
-    ((:solve field) args))
-
-  muse/LabeledSource
-  (resource-id [_] args))
-
-
-;M TODO: pre-processing
+;; TODO: pre-processing
 ;; TODO: schema is not really needed for execution, but for validation and introspection it probably will be
 (defn create-schema
   [root]
