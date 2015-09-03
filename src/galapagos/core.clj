@@ -156,7 +156,6 @@
 
     (muse/flat-map
       (fn [solution]
-        (println solution)
         (if (empty-node? field solution)
           (muse/value {})
           (traverse field solution)))
