@@ -5,13 +5,27 @@
             [muse.core :as muse])
   (:refer-clojure :exclude [compile]))
 
+(declare traverse-root traverse-one traverse-many)
+
 (defprotocol Solvable
   (solve [this value])
   (arity [this])
+  (traverse-fn [this])
   (acc-fn [this]))
 
 (defprotocol Visited
   (done? [this]))
+
+(defrecord SolvableRoot [node fields]
+  Solvable
+  (solve [_ _] (muse/value {}))
+  (arity [_] :one)
+  (traverse-fn [_] traverse-root)
+  (acc-fn [_] #(assoc {} :data %))
+
+  Visited
+  (done? [_] false))
+
 
 (defrecord SolvableNode [node query fields]
   Solvable
@@ -27,6 +41,9 @@
         (resource-id [_] args))))
 
   (arity [_] (:arity node))
+
+  (traverse-fn [this]
+    (if (= (arity this) :many) traverse-many traverse-one))
 
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
@@ -47,6 +64,8 @@
         (resource-id [_] value))))
 
   (arity [_] :one)
+
+  (traverse-fn [_] traverse-one)
 
   ;; At leaves, we use the result directly
   (acc-fn [_] #(into {} %))
@@ -90,9 +109,7 @@
      ;; the first subtree (the actual query) which is easier to traverse.
      ;; Multiple top-level query trees are not currently supported.
      (if (= root node)
-       (do
-         (assert (= 1 (count fields)) "Multiple, sibling solvable nodes are not supported at the root level!")
-         (first fields))
+       (->SolvableRoot node fields)
 
        (if (schema/primitive? node)
          (->SolvableField [node] [(:name query)])
@@ -126,7 +143,11 @@
   (or (empty? solution) (empty? (:fields field))))
 
 
-(defn traverse-one
+(defn- traverse-root
+  [_ field parent]
+  (traverse field parent))
+
+(defn- traverse-one
   [graph field parent]
   ;; Solution is either a leaf node (which we'll solve directly,
   ;; terminating the recursion) or a single new traversable node.
@@ -135,12 +156,13 @@
 
     (muse/flat-map
       (fn [solution]
+        (println solution)
         (if (empty-node? field solution)
           (muse/value {})
           (traverse field solution)))
       (solve graph parent))))
 
-(defn traverse-many
+(defn- traverse-many
   [graph field parent]
   ;; Solution is a collection of traversable nodes.
   ;; Use muse/traverse to iterate over all of them.
@@ -154,18 +176,15 @@
 (defn traverse
   ([graph] (traverse graph {}))
   ([graph parent]
-   (let [fields (:fields graph)
-         traverse-fn (if (= (arity graph) :many) traverse-many traverse-one)]
-
-     (muse/fmap
-       (acc-fn graph)
-       (apply (partial muse/fmap
-                (fn [& muses]
-                  ; merge the sibling muses into one list
-                  (if (= (arity graph) :one)
-                    (into {} muses)
-                    (apply (partial map merge) muses))))
-         (map #(traverse-fn graph % parent) fields))))))
+   (muse/fmap
+     (acc-fn graph)
+     (apply (partial muse/fmap
+              (fn [& muses]
+                ; merge the sibling muses into one list
+                (if (= (arity graph) :one)
+                  (into {} muses)
+                  (apply (partial map merge) muses))))
+       (map #((traverse-fn graph) graph % parent) (:fields graph))))))
 
 
 
