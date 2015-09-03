@@ -134,25 +134,6 @@
          (->SolvableField [node] [(:name query)])
          (->SolvableNode node query (merge-children fields)))))))
 
-;; deprecated for execution - might be a good approach for introspection though
-(defn- walk
-  "Walks the graph, providing solutions as inputs to child elements.
-   The result is a solved context. This is a naive approach and not
-   as efficient as traversal with muse (see the traverse function)."
-  ([context] (walk context {}))
-  ([context parent-solution]
-   (mapv
-     (fn [query field]
-       (let [solution (solve field parent-solution)]
-         {(:name query) {:solution solution
-                         :fields   (when (not (nil? solution))
-                                     (if (= (arity field) :many)
-                                       (mapv (partial walk field) solution)
-                                       (walk field solution)))}}))
-     (get-in context [:query :fields])
-     (get-in context [:fields]))))
-
-
 
 (defn- empty-node?
   "Check if a node is empty (either lacks a solution or doesn't have any children).
