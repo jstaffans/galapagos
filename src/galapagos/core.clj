@@ -117,7 +117,11 @@
   ([root query] (compile root root query))
   ([root node query]
    (let [fields (mapv (fn [query]
-                        (let [field (get-in node [:fields (:name query) :type])]
+                        (let [field (or
+                                      ;; types can be defined either at individual nodes
+                                      ;; or at the root of the schema
+                                      (get-in node [:fields (:name query) :type])
+                                      (get-in root [:fields (:name query) :type]))]
                           (compile root field query)))
                   (:fields query))]
      ;; Don't return the query root of the schema, instead return
