@@ -12,7 +12,7 @@
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> #'[^,)]+' <whitespace>
                  FIELDS = <whitespace> <'{'> FIELD (<','> FIELD)* <'}'> <whitespace>
-                 FIELD = <whitespace> NAME(ARGS | CALLS)? <whitespace> (<'as'> <whitespace> ALIAS <whitespace>)? FIELDS? <whitespace>
+                 FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> FIELDS? <whitespace>
                  ALIAS = token
                  CALLS = CALL+
                  CALL = <'.'> NAME ARGS

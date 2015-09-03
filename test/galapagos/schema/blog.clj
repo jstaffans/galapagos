@@ -31,8 +31,9 @@
    :returns     Post
    :solve       (fn [{:keys [id]}]
                   (async/go
-                    (if (= 1 (Integer/valueOf id))
-                      {:id 1 :title "Some post"}
+                    ;; TODO: coercion
+                    (if (< (Integer/valueOf id) 3)
+                      {:id (Integer/valueOf id) :title (str "Post #" id)}
                       nil)))})
 
 (schema/deffield FindPosts

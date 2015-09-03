@@ -154,7 +154,7 @@
          ;; a new level of nesting for each level of recursion.
          acc-fn (if (done? graph)
                   #(into {} %)
-                  #(assoc {} (:name query) %))
+                  #(assoc {} (or (:alias query) (:name query)) %))
 
          traverse-fn (if (= (arity graph) :many) traverse-many traverse-one)]
 

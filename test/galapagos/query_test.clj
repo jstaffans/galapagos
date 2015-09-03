@@ -18,7 +18,15 @@
     (given (query/parse "{ post { id, title } }")
       (comp first :fields) :⊃ {:name :post}
       (comp first :fields first :fields) :⊃ {:name :id}
-      (comp second :fields first :fields) :⊃ {:name :title})))
+      (comp second :fields first :fields) :⊃ {:name :title}))
+
+  (testing "Named fields"
+    (given (query/parse "{ somePost: post { id, title } }")
+      (comp first :fields) :⊃ {:name :post :alias :somePost}
+      (comp first :fields first :fields) :⊃ {:name :id}
+      (comp second :fields first :fields) :⊃ {:name :title}))
+
+  )
 
 
 

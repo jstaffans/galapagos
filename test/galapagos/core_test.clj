@@ -11,9 +11,9 @@
 (deftest core-test
   (testing "Simple query of existing post"
     (given (core/execute!! blog-schema "{ post(id: 1) { title } }")
-      :post := {:title "Some post"})
+      :post := {:title "Post #1"})
     (given (core/execute!! blog-schema "{ post(id: 1) { id, title } }")
-      :post := {:title "Some post" :id 1}))
+      :post := {:title "Post #1" :id 1}))
 
   (testing "Non-existent post"
     (given (core/execute!! blog-schema "{ post(id: 99) { title } }")
@@ -21,9 +21,14 @@
 
   (testing "Nested queries"
     (given (core/execute!! blog-schema "{ post(id: 1) { author { name } } }")
-      :post := {:author {:name "Author Of Some post"}})
+      :post := {:author {:name "Author Of Post #1"}})
     (given (core/execute!! blog-schema "{ post(id: 1) { author { name, preferredEditor } } }")
-      :post := {:author {:name "Author Of Some post" :preferredEditor :vim}}))
+      :post := {:author {:name "Author Of Post #1" :preferredEditor :vim}}))
+
+  (testing "Named fields"
+    (given (core/execute!! blog-schema
+             "query readPost { firstPost: post(id: 1) { title } }")
+      :firstPost := {:title "Post #1"}))
 
   (testing "Lists"
     (given (core/execute!! blog-schema "{ posts { id, title } }")
