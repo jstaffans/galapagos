@@ -1,5 +1,6 @@
 (ns galapagos.core
   (:require [galapagos.query :refer [parse]]
+            [galapagos.util :as util]
             [galapagos.schema :as schema]
             [clojure.core.async :as async]
             [muse.core :as muse])
@@ -45,9 +46,7 @@
                                      ;; Just return the raw solution.
                                      (if (solves-to-primitive? this)
                                        solution
-                                       (if (vector? solution)
-                                         (into [] (map #(assoc {} (:type node) %) solution))
-                                         (assoc {} (:type node) solution))))))]
+                                       (util/apply-1 #(assoc {} (:type node) %) solution)))))]
             (async/pipe ((:solve node) args) result-chan)))
 
         muse/LabeledSource
