@@ -1,7 +1,7 @@
 (ns galapagos.schema
   (:require [schema.core :as s]
             [muse.core :as muse])
-  (:import (schema.core Predicate))
+  (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype]))
 
 (def GraphQLInt s/Int)
@@ -15,14 +15,12 @@
   (or
     (= Class (type t))
     (= Predicate (type t))
-    (:primitive? t)))
+    (= EnumSchema (type t))))
 
 (defmacro defenum
   [name & values]
   `(def ~name
-     {:primitive? true
-      ;; TODO: do something with the values (validation)
-      :values (vector ~@values)}))
+     (s/enum ~@values)))
 
 (defmacro deftype
   [name t]
