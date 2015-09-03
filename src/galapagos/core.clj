@@ -5,7 +5,7 @@
             [muse.core :as muse])
   (:refer-clojure :exclude [compile]))
 
-(declare traverse-root traverse-one traverse-many)
+(declare traverse traverse-root traverse-one traverse-many)
 
 (defprotocol Solvable
   (solve [this value])
@@ -135,13 +135,11 @@
 
 
 
-(declare traverse)
 (defn- empty-node?
   "Check if a node is empty (either lacks a solution or doesn't have any children).
   We can stop the recursion in this case and return an empty result."
   [field solution]
   (or (empty? solution) (empty? (:fields field))))
-
 
 (defn- traverse-root
   [_ field parent]
