@@ -30,11 +30,11 @@
              "query readPost { firstPost: post(id: 1) { title } }")
       :data := {:firstPost {:title "Post #1"}}))
 
-  #_(testing "Siblings"
+  (testing "Siblings"
     (given (core/execute!! blog-schema
-             "query readPost { firstPost: post(id: 1) { title } secondPost: (post(id: 2) { title } }")
-      :firstPost := {:title "Post #1"}
-      :secondPost := {:title "Post #2"}))
+             "query readPost { firstPost: post(id: 1) { title } secondPost: post(id: 2) { title } }")
+      :data := {:firstPost  {:title "Post #1"}
+                :secondPost {:title "Post #2"}}))
 
   (testing "Lists"
     (given (core/execute!! blog-schema "{ posts { id, title } }")

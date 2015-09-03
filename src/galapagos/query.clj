@@ -1,5 +1,6 @@
 (ns galapagos.query
-  (:require [instaparse.core :as insta]))
+  (:require [instaparse.core :as insta])
+  (:import [IllegalArgumentException]))
 
 ;; Credits go to Huey Petersen (https://github.com/eyston/hueyql)
 
@@ -11,7 +12,7 @@
                  IDS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> #'[^,)]+' <whitespace>
-                 FIELDS = <whitespace> <'{'> FIELD (<','> FIELD)* <'}'> <whitespace>
+                 FIELDS = <whitespace> <'{'> FIELD ((<','>)? FIELD)* <'}'> <whitespace>
                  FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> FIELDS? <whitespace>
                  ALIAS = token
                  CALLS = CALL+
@@ -44,7 +45,10 @@
                                       (merge (into {} args) {:op :query}))}))
 
 (defn parse [string]
-  (-> string
-    parser
-    transform))
+  (let [tree (parser string)]
+    (if (insta/failure? tree)
+      (do
+        (print (insta/get-failure tree))
+        (throw (IllegalArgumentException. "Could not parse query!")))
+      (transform tree))))
 

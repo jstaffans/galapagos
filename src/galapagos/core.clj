@@ -210,10 +210,9 @@
     galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
     \"{ post(id: 1) { title } }\"))"
   [{:keys [root]} query-string]
-  (muse/run!
-    (let [query (parse query-string)
-          graph (compile root query)]
-      (traverse graph))))
+  (let [query (parse query-string)
+        graph (compile root query)]
+    (muse/run! (traverse graph))))
 
 (defn execute!!
   "Blocking execution. See execute! for the non-blocking version.

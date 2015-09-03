@@ -26,7 +26,10 @@
       (comp first :fields first :fields) :⊃ {:name :id}
       (comp second :fields first :fields) :⊃ {:name :title}))
 
-  )
+  (testing "Siblings"
+    (given (query/parse "{ somePost: post(id: 1) { title }, anotherPost: post(id: 2) { title } }")
+      (comp first :fields) :⊃ {:name :post :alias :somePost}
+      (comp second :fields) :⊃ {:name :post :alias :anotherPost})))
 
 
 
