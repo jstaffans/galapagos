@@ -2,7 +2,7 @@
   (:require [instaparse.core :as insta])
   (:import [IllegalArgumentException]))
 
-;; Credits go to Huey Petersen (https://github.com/eyston/hueyql)
+;; Credits go to Huey Petersen (https://github.com/eyston/hueyql), I adapted this from his parser
 
 (def parser
   (insta/parser "ROOT = INTRO? IDS? FIELDS <whitespace>
