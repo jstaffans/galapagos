@@ -4,15 +4,19 @@
 
 (schema/defenum PreferredEditor :vim :emacs :sublime)
 
-(schema/deftype Author
-  {:fields {:id              {:type schema/GraphQLInt}
-            :name            {:type schema/GraphQLString}
-            :preferredEditor {:type PreferredEditor}}})
+(schema/definterface Blogger
+  {:fields {:id   {:type schema/GraphQLInt}
+            :name {:type schema/GraphQLString}}})
 
-(schema/deftype Post
+(schema/deftype Commenter [Blogger] {})
+
+(schema/deftype Author [Blogger]
+  {:fields {:preferredEditor {:type PreferredEditor}}})
+
+(schema/deftype Post []
   {:description "A blog post"
-   :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
-                 :title  {:type schema/GraphQLString :description "The title"}}})
+   :fields      {:id    {:type schema/GraphQLInt :description "The ID"}
+                 :title {:type schema/GraphQLString :description "The title"}}})
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
@@ -37,7 +41,7 @@
 
 (schema/deffield FindAuthor
   {:description "Finds the author of a post"
-   :args        {:post Post}
+   :args        {}
    :returns     Author
    :solve       (fn [args]
                   (async/go
@@ -45,7 +49,7 @@
 
 (schema/deffield FindProfilePicture
   {:description "Returns the profile picture of the desired size."
-   :args        {:author Author :size schema/GraphQLString}
+   :args        {:size schema/GraphQLString}
    :returns     schema/GraphQLString
    :solve       (fn [{:keys [size] :as args}]
                   (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
@@ -56,7 +60,10 @@
    :description "The query root for this schema"
    :fields      {:post           {:type FindPost}
                  :posts          {:type FindPosts}
-                 ;; TODO: for introspection, would need an :applies-to key or something
-                 :author         {:type FindAuthor}
-                 :profilePicture {:type FindProfilePicture}}})
+                 ;; TODO: do something with applies-to
+                 :author         {:type FindAuthor :applies-to [Post]}
+                 :profilePicture {:type FindProfilePicture :applies-to [Author]}}
+
+   ;; TODO: add this as pre-processing step
+   :interfaces  {:Blogger Blogger}})
 

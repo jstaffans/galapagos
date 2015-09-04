@@ -42,7 +42,19 @@
       :data := {:post {:author {:profilePicture "url/for/id/123?size=default"}}})
     (given (core/execute!! blog-schema
              "{ post(id: 1) { author { profilePicture(size: small) } } }")
-      :data := {:post {:author {:profilePicture "url/for/id/123?size=small"}}}))
+      :data := {:post {:author {:profilePicture "url/for/id/123?size=small"}}})
+    (given (core/execute!! blog-schema
+             "{ post(id: 1) {
+                  author {
+                    smallPic: profilePicture(size: small)
+                    largePic: profilePicture(size: large)
+                  }
+                }
+             }")
+      :data := {:post {:author {:smallPic "url/for/id/123?size=small"
+                                :largePic "url/for/id/123?size=large"}}})
+
+    )
 
   (testing "Lists"
     (given (core/execute!! blog-schema "{ posts { id, title } }")
