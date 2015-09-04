@@ -5,15 +5,18 @@
 ;; Credits go to Huey Petersen (https://github.com/eyston/hueyql), I adapted this from his parser
 
 (def parser
-  (insta/parser "ROOT = INTRO? IDS? FIELDS <whitespace>
+  (insta/parser "ROOT = INTRO? IDS? SELECTION <whitespace>
                  INTRO = OP <whitespace> NAME
                  OP = 'query' | 'mutation'
                  NAME = token
                  IDS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> #'[^,)]+' <whitespace>
-                 FIELDS = <whitespace> <'{'> FIELD ((<','>)? FIELD)* <'}'> <whitespace>
-                 FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> FIELDS? <whitespace>
+                 SELECTION = <whitespace> <'{'> (FRAGMENT_SPREAD | FIELDS) <'}'> <whitespace>
+                 FIELDS = FIELD ((<','>)? FIELD)*
+                 FRAGMENT_SPREAD = <whitespace> <'...'> (<whitespace>)? FRAGMENT <whitespace>
+                 FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> SELECTION? <whitespace>
+                 FRAGMENT = token
                  ALIAS = token
                  CALLS = CALL+
                  CALL = <'.'> NAME ARGS
@@ -31,18 +34,21 @@
 
 
 (def transform
-  (partial insta/transform {:INTRO  (fn [& args] (into {} args))
-                            :OP     (fn [op] [:op (keyword op)])
-                            :NAME   (fn [name] [:name (keyword name)])
-                            :IDS    (fn [& args] [:ids (vec args)])
-                            :ARGS   (fn [& args] [:args (into {} (map map-from-args args))])
-                            :ALIAS  (fn [alias] [:alias (keyword alias)])
-                            :CALLS  (fn [& calls] [:calls (vec calls)])
-                            :CALL   (fn [name args] (into {} [name args]))
-                            :FIELDS (fn [& fields] [:fields (vec fields)])
-                            :FIELD  (fn [& args] (into {} args))
-                            :ROOT   (fn [& args]
-                                      (merge (into {} args) {:op :query}))}))
+  (partial insta/transform {:INTRO           (fn [& args] (into {} args))
+                            :OP              (fn [op] [:op (keyword op)])
+                            :NAME            (fn [name] [:name (keyword name)])
+                            :IDS             (fn [& args] [:ids (vec args)])
+                            :ARGS            (fn [& args] [:args (into {} (map map-from-args args))])
+                            :ALIAS           (fn [alias] [:alias (keyword alias)])
+                            :CALLS           (fn [& calls] [:calls (vec calls)])
+                            :CALL            (fn [name args] (into {} [name args]))
+                            :SELECTION       (fn [& fields] (into {} fields))
+                            :FRAGMENT_SPREAD (fn [fragment-spread] fragment-spread)
+                            :FRAGMENT        (fn [fragment] [:fragment (keyword fragment)])
+                            :FIELDS          (fn [& fields] [:fields (vec fields)])
+                            :FIELD           (fn [& args] (into {} args))
+                            :ROOT            (fn [& args]
+                                               (merge (into {} args) {:op :query}))}))
 
 (defn parse [string]
   (let [tree (parser string)]

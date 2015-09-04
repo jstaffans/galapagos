@@ -29,7 +29,17 @@
   (testing "Siblings"
     (given (query/parse "{ somePost: post(id: 1) { title }, anotherPost: post(id: 2) { title } }")
       (comp first :fields) :⊃ {:name :post :alias :somePost}
-      (comp second :fields) :⊃ {:name :post :alias :anotherPost})))
+      (comp second :fields) :⊃ {:name :post :alias :anotherPost}))
+
+  (testing "Fragments"
+    (given (query/parse "{ post {
+                           ... postFields
+                           }
+                         }")
+
+      :fields := [{:name :post, :fragment :postFields}]))
+
+  )
 
 
 
