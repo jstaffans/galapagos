@@ -12,8 +12,8 @@
                  IDS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> #'[^,)]+' <whitespace>
-                 SELECTION = <whitespace> <'{'> (FRAGMENT_SPREAD | FIELDS) <'}'> <whitespace>
-                 FIELDS = FIELD ((<','>)? FIELD)*
+                 SELECTION = <whitespace> <'{'> FIELDS <'}'> <whitespace>
+                 FIELDS = (FIELD | FRAGMENT_SPREAD) ((<','>)? (FIELD | FRAGMENT_SPREAD))*
                  FRAGMENT_SPREAD = <whitespace> <'...'> (<whitespace>)? FRAGMENT <whitespace>
                  FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> SELECTION? <whitespace>
                  FRAGMENT = token
@@ -43,7 +43,7 @@
                             :CALLS           (fn [& calls] [:calls (vec calls)])
                             :CALL            (fn [name args] (into {} [name args]))
                             :SELECTION       (fn [& fields] (into {} fields))
-                            :FRAGMENT_SPREAD (fn [fragment-spread] fragment-spread)
+                            :FRAGMENT_SPREAD (fn [fragment-spread] (apply assoc {} fragment-spread))
                             :FRAGMENT        (fn [fragment] [:fragment (keyword fragment)])
                             :FIELDS          (fn [& fields] [:fields (vec fields)])
                             :FIELD           (fn [& args] (into {} args))

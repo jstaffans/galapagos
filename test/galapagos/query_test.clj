@@ -32,14 +32,10 @@
       (comp second :fields) :⊃ {:name :post :alias :anotherPost}))
 
   (testing "Fragments"
-    (given (query/parse "{ post {
-                           ... postFields
-                           }
-                         }")
-
-      :fields := [{:name :post, :fragment :postFields}]))
-
-  )
+    (given (query/parse "{ post { ... postFields } }")
+      :fields := [{:name :post, :fields [{:fragment :postFields}]}])
+    (given (query/parse "{ post { id, ... postFields } }")
+      :fields := [{:name :post, :fields [{:name :id} {:fragment :postFields}]}])))
 
 
 
