@@ -39,8 +39,7 @@
     (given (query/parse "{ post { ... postFields } }
                          fragment postFields on Post { id, title }")
       :fields := [{:name :post, :fields [], :fragments [:postFields]}]
-      :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}})
-    ))
+      :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}})))
 
 
 
