@@ -65,7 +65,15 @@
                         {:id 2 :title "Another post" :author {:name "Author Of Another post"}}]})
     (given (core/execute!! blog-schema "{ posts { author { name } } }")
       :data := {:posts [{:author {:name "Author Of Some post"}}
-                        {:author {:name "Author Of Another post"}}]})))
+                        {:author {:name "Author Of Another post"}}]}))
+
+
+  (testing "Fragments"
+    (given (core/execute!! blog-schema
+             "{ post(id: 1) { id, ... postFields, author { ... authorFields } } }
+              fragment postFields on Post { title }
+              fragment authorFields on Author { id, name }")
+      :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}})))
 
 
 

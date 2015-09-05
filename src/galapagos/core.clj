@@ -154,18 +154,23 @@
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
+(defn- collect-fields
+  [query fragments]
+  ;; TODO: type validation
+  (reduce #(into %1 (get-in fragments [%2 :fields])) (:fields query) (:fragments query)))
+
 (defn- returns-primitive?
   [node]
   (and (:returns node) (schema/primitive? (:returns node))))
 
 (defn- compile
   "Compiles query into a traversable graph."
-  ([root query] (compile root root query))
-  ([root node query]
+  ([root query] (compile root root (:fragments query) (dissoc query :fragments)))
+  ([root node fragments query]
    (let [fields (mapv (fn [query]
                         (let [field (get-field-definition root node query)]
-                          (compile root field query)))
-                  (:fields query))]
+                          (compile root field fragments query)))
+                  (collect-fields query fragments))]
      (if (= root node)
        (->SolvableRoot node fields)
 
