@@ -166,9 +166,6 @@
                         (let [field (get-field-definition root node query)]
                           (compile root field query)))
                   (:fields query))]
-     ;; Don't return the query root of the schema, instead return
-     ;; the first subtree (the actual query) which is easier to traverse.
-     ;; Multiple top-level query trees are not currently supported.
      (if (= root node)
        (->SolvableRoot node fields)
 
