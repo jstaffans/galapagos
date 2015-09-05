@@ -15,7 +15,7 @@
   (acc-fn [this]))
 
 (defprotocol Visited
-  (solves-to-primitive? [this])
+  (empty-node? [this])
   (done? [this]))
 
 (defrecord SolvableRoot [node fields]
@@ -26,13 +26,17 @@
   (acc-fn [_] #(assoc {} :data %))
 
   Visited
-  (solves-to-primitive? [_] false)
+  (empty-node? [_] false)
   (done? [_] false))
 
 
+(defn- resolve-name
+  [query]
+  (or (:alias query) (:name query)))
+
 (defrecord SolvableNode [node query fields]
   Solvable
-  (solve [this value]
+  (solve [_ value]
     ;; if we don't have arguments, solve using the parent value
     (let [args (merge (:args query) value)]
       (reify
@@ -40,17 +44,14 @@
         (fetch [_]
           ;; modify the solution with a transducer that maps the solution
           ;; to the type of the node. Easier to deal with in child nodes.
-          (let [result-chan (async/chan 1
-                              (map (fn [solution]
-                                     ;; If we're getting a primitive, there won't be any child nodes.
-                                     ;; Just return the raw solution.
-                                     (if (solves-to-primitive? this)
-                                       solution
-                                       (util/apply-1 #(assoc {} (:type node) %) solution)))))]
-            (async/pipe ((:solve node) args) result-chan)))
+          (let [out-chan (async/chan 1
+                           (map
+                             (fn [solution]
+                               (util/apply-1 #(assoc {} (:type node) %) solution))))]
+            (async/pipe ((:solve node) args) out-chan)))
 
         muse/LabeledSource
-        (resource-id [_] args))))
+        (resource-id [_] [args (resolve-name query)]))))
 
   (arity [_] (:arity node))
 
@@ -59,18 +60,17 @@
 
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
-    #(assoc {} (or (:alias query) (:name query)) %))
+    #(assoc {} (resolve-name query) %))
 
   Visited
-  ;; Nodes may solve to a primitive
-  (solves-to-primitive? [_] (schema/primitive? (:returns node)))
-  (done? [this] (solves-to-primitive? this)))
+  (empty-node? [_] (empty? fields))
+  (done? [_] false))
 
-(defrecord SolvableField [fields key-names]
+
+;; A leaf that looks up keys in a parent map or record.
+(defrecord SolvableLookupField [fields key-names]
   Solvable
   (solve [_ value]
-    ;; value is the parent map from which we are fetching keys.
-    ;; It'll be in the form of {:parent { .. fields .. }}
     (let [solution (reduce #(assoc %1 %2 (get (first (vals value)) %2)) {} key-names)]
       (reify
         muse/DataSource
@@ -87,32 +87,57 @@
   (acc-fn [_] #(into {} %))
 
   Visited
-  ;; Fields are records or maps, not primitives
-  (solves-to-primitive? [_] false)
+  (empty-node? [_] (empty? fields))
+  (done? [_] true))
+
+
+;; A leaf node that resolves directly to a value
+(defrecord SolvableRawField [node query fields]
+  Solvable
+  (solve [_ value]
+    (let [args (merge (:args query) value)]
+      (reify
+        muse/DataSource
+        (fetch [_]
+          ;; Use a transducer to associate the raw solution to the name of the field
+          (let [out-chan (async/chan 1 (map #(assoc {} (resolve-name query) %)))]
+            (async/pipe ((:solve node) args) out-chan)))
+
+        muse/LabeledSource
+        (resource-id [_] [value (resolve-name query)]))))
+
+  (arity [_] :one)
+
+  (traverse-fn [_] traverse-one)
+
+  (acc-fn [_] #(into {} %))
+
+  Visited
+  (empty-node? [_] false)
   (done? [_] true))
 
 
 (defn- merge-children
-  "Merges SolvableField children to a single SolvableField with multiple
-   fields and key-names. Keeps traversal lean, because we don't have to
-   visit each leaf separately.
+  "Merges SolvableLookupField children to a single SolvableLookupField with multiple
+   fields and key-names. Keeps traversal lean, because we don't have to visit each leaf
+   separately.
 
    Example:
 
-   [#SolvableField{:fields [GraphQLInt], :key-names [:id]}
-    #SolvableField{:fields [GraphQLString], :key-names [:name]}]
+   [#SolvableLookupField{:fields [GraphQLInt], :key-names [:id]}
+    #SolvableLookupField{:fields [GraphQLString], :key-names [:name]}]
 
-    -> [#SolvableField{:fields [GraphQLInt GraphQLString], :key-names [:id :name]}]
+    -> [#SolvableLookupField{:fields [GraphQLInt GraphQLString], :key-names [:id :name]}]
    "
   [fields]
-  (let [mergeable? #(instance? SolvableField %)
+  (let [mergeable? #(instance? SolvableLookupField %)
         mergeable-fields (filter mergeable? fields)
         other-fields (into [] (filter (complement mergeable?) fields))]
     (->> mergeable-fields
          ((juxt
             #(apply concat (mapv :fields %))
             #(apply concat (mapv :key-names %))))
-         (apply galapagos.core/->SolvableField)
+         (apply galapagos.core/->SolvableLookupField)
          (conj other-fields))))
 
 (defn get-field-definition
@@ -129,6 +154,10 @@
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
+(defn- returns-primitive?
+  [node]
+  (and (:returns node) (schema/primitive? (:returns node))))
+
 (defn- compile
   "Compiles query into a traversable graph."
   ([root query] (compile root root query))
@@ -143,16 +172,10 @@
      (if (= root node)
        (->SolvableRoot node fields)
 
-       (if (schema/primitive? node)
-         (->SolvableField [node] [(:name query)])
-         (->SolvableNode node query (merge-children fields)))))))
-
-
-(defn- empty-node?
-  "Check if a node is empty (either lacks a solution or doesn't have any children).
-  We can stop the recursion in this case and return an empty result."
-  [field solution]
-  (or (empty? solution) (empty? (:fields field))))
+       (cond
+         (schema/primitive? node)  (->SolvableLookupField [node] [(:name query)])
+         (returns-primitive? node) (->SolvableRawField node query [node])
+         :else                     (->SolvableNode node query (merge-children fields)))))))
 
 (defn- traverse-root
   [_ field parent]
@@ -167,7 +190,7 @@
 
     (muse/flat-map
       (fn [solution]
-        (if (empty-node? field solution)
+        (if (or (empty? solution) (empty-node? field))
           (muse/value {})
           (traverse field solution)))
       (solve graph parent))))
@@ -178,16 +201,14 @@
   ;; Use muse/traverse to iterate over all of them.
   (muse/traverse
     (fn [solution]
-      (if (empty-node? field solution)
-          (muse/value {})
-          (traverse field solution)))
+      (if (or (empty? solution) (empty-node? field))
+        (muse/value {})
+        (traverse field solution)))
     (solve graph parent)))
 
 (defmulti merge-siblings (fn [graph _] (arity graph)))
 
-(defmethod merge-siblings :one [graph muses] (if (solves-to-primitive? graph)
-                                               (first muses)
-                                               (into {} muses)))
+(defmethod merge-siblings :one [_ muses] (into {} muses))
 
 (defmethod merge-siblings :many [_ muses] (apply (partial map merge) muses))
 
