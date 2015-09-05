@@ -33,9 +33,14 @@
 
   (testing "Fragments"
     (given (query/parse "{ post { ... postFields } }")
-      :fields := [{:name :post, :fields [{:fragment :postFields}]}])
+      :fields := [{:name :post, :fields [], :fragments [:postFields]}])
     (given (query/parse "{ post { id, ... postFields } }")
-      :fields := [{:name :post, :fields [{:name :id} {:fragment :postFields}]}])))
+      :fields := [{:name :post, :fields [{:name :id}], :fragments [:postFields]}])
+    (given (query/parse "{ post { ... postFields } }
+                         fragment postFields on Post { id, title }")
+      :fields := [{:name :post, :fields [], :fragments [:postFields]}]
+      :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}})
+    ))
 
 
 

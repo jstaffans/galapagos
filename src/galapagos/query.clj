@@ -5,21 +5,23 @@
 ;; Credits go to Huey Petersen (https://github.com/eyston/hueyql), I adapted this from his parser
 
 (def parser
-  (insta/parser "ROOT = INTRO? IDS? SELECTION <whitespace>
+  (insta/parser "ROOT = INTRO? IDS? SELECTION <whitespace> FRAGMENTS? <whitespace>
                  INTRO = OP <whitespace> NAME
                  OP = 'query' | 'mutation'
                  NAME = token
                  IDS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> #'[^,)]+' <whitespace>
-                 SELECTION = <whitespace> <'{'> FIELDS <'}'> <whitespace>
-                 FIELDS = (FIELD | FRAGMENT_SPREAD) ((<','>)? (FIELD | FRAGMENT_SPREAD))*
-                 FRAGMENT_SPREAD = <whitespace> <'...'> (<whitespace>)? FRAGMENT <whitespace>
+                 SELECTION = <whitespace> <'{'> (FIELD | FRAGMENT_SPREAD) ((<','>)? (FIELD | FRAGMENT_SPREAD))* <'}'> <whitespace>
+                 FRAGMENT_SPREAD = <whitespace> <'...'> (<whitespace>)? FRAGMENT_NAME <whitespace>
                  FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> SELECTION? <whitespace>
-                 FRAGMENT = token
                  ALIAS = token
                  CALLS = CALL+
                  CALL = <'.'> NAME ARGS
+                 FRAGMENTS = FRAGMENT*
+                 FRAGMENT = <'fragment'> <whitespace> FRAGMENT_NAME <whitespace> <'on'> <whitespace> FRAGMENT_ON (SELECTION)*
+                 FRAGMENT_NAME = token
+                 FRAGMENT_ON = token
                  <token> = #'\\w+'
                  whitespace = #'\\s*'"))
 
@@ -42,11 +44,16 @@
                             :ALIAS           (fn [alias] [:alias (keyword alias)])
                             :CALLS           (fn [& calls] [:calls (vec calls)])
                             :CALL            (fn [name args] (into {} [name args]))
-                            :SELECTION       (fn [& fields] (into {} fields))
-                            :FRAGMENT_SPREAD (fn [fragment-spread] (apply assoc {} fragment-spread))
-                            :FRAGMENT        (fn [fragment] [:fragment (keyword fragment)])
+                            :SELECTION       (fn [& selections] (assoc {}
+                                                                  :fields (vec (filter coll? selections))
+                                                                  :fragments (vec (filter keyword? selections))))
+                            :FRAGMENT_SPREAD (fn [fragment-spread] fragment-spread)
+                            :FRAGMENT_NAME   (fn [fragment] (keyword fragment))
                             :FIELDS          (fn [& fields] [:fields (vec fields)])
                             :FIELD           (fn [& args] (into {} args))
+                            :FRAGMENTS       (fn [& args] [:fragments (into {} args)])
+                            :FRAGMENT        (fn [fragment-name & args] {fragment-name (into {} args)})
+                            :FRAGMENT_ON     (fn [on] [:on (keyword on)])
                             :ROOT            (fn [& args]
                                                (merge (into {} args) {:op :query}))}))
 
