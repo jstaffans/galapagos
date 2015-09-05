@@ -219,7 +219,7 @@
      (acc-fn graph)
      (apply (partial muse/fmap
               (fn [& muses]
-                ; merge the sibling muses into one list
+                ; merge the sibling muses into one map or list of maps
                 (merge-siblings graph muses)))
        (map #((traverse-fn graph) graph % parent) (:fields graph))))))
 
