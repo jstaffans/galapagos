@@ -9,6 +9,8 @@
 
 (def GraphQLString s/Str)
 
+(def GraphQLScalar s/Any)
+
 (defn primitive?
   [t]
   (or

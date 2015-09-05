@@ -16,7 +16,8 @@
 (schema/deftype Post []
   {:description "A blog post"
    :fields      {:id    {:type schema/GraphQLInt :description "The ID"}
-                 :title {:type schema/GraphQLString :description "The title"}}})
+                 :title {:type schema/GraphQLString :description "The title"}
+                 :date  {:type schema/GraphQLScalar :description "The publishing date"}}})
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
