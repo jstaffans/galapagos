@@ -8,10 +8,12 @@
 ;; TODO: accept Prismatic Schema schemas as types directly
 
 (schema/definterface Blogger
-  {:fields {:id   {:type schema/GraphQLInt}
-            :name {:type schema/GraphQLString}}})
+  {:fields {:id     {:type schema/GraphQLInt}
+            :name   {:type schema/GraphQLString}
+            :handle {:type schema/GraphQLString}}})
 
-(schema/deftype Commenter [Blogger] {})
+(schema/deftype Commenter [Blogger]
+  {:fields {:numComments {:type schema/GraphQLInt}}})
 
 (schema/deftype Author [Blogger]
   {:fields {:preferredEditor {:type PreferredEditor}}})
@@ -21,6 +23,19 @@
    :fields      {:id    {:type schema/GraphQLInt :description "The ID"}
                  :title {:type schema/GraphQLString :description "The title"}
                  :date  {:type schema/GraphQLScalar :description "The publishing date"}}})
+
+
+(schema/deffield FindBloggers
+  {:description "Finds bloggers by handles"
+   :args        {:handles [schema/GraphQLString]}
+   :returns     [Blogger]
+   :solve       (fn [{:keys [handles]}]
+                  (async/go
+                    (map
+                      #(if (re-matches #"^commmenter.*" %)
+                        {:id 200 :name "Commenter" :handle % :numComments 5}
+                        {:id 300 :name "Author" :handle % :preferredEditor :vim})
+                      handles)))})
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
@@ -49,7 +64,10 @@
    :returns     Author
    :solve       (fn [args]
                   (async/go
-                    {:id 123 :name (str "Author Of " (get-in args ['Post :title])) :preferredEditor :vim}))})
+                    {:id 123
+                     :name (str "Author Of " (get-in args ['Post :title]))
+                     :preferredEditor :vim
+                     :handle (str "author-123")}))})
 
 (schema/deffield FindProfilePicture
   {:description "Returns the profile picture of the desired size."
@@ -64,6 +82,7 @@
    :description "The query root for this schema"
    :fields      {:post           {:type FindPost}
                  :posts          {:type FindPosts}
+                 :bloggers       {:type FindBloggers}
                  ;; TODO: do something with applies-to
                  :author         {:type FindAuthor :applies-to [Post]}
                  :profilePicture {:type FindProfilePicture :applies-to [Author]}}

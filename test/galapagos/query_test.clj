@@ -42,8 +42,8 @@
       :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}}))
 
   (testing "Input arguments"
-    (given (query/parse "{ bloggers(id: 1, names: ['john', 'adam']) }")
-      :fields := [{:name :bloggers :args {:id "1" :names "['john', 'adam']"}}]))
+    (given (query/parse "{ bloggers(id: 1, names: ['john', \"adam\"]) }")
+      :fields := [{:name :bloggers :args {:id "1" :names ["john" "adam"]}}]))
   )
 
 
