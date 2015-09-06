@@ -73,7 +73,12 @@
              "{ post(id: 1) { id, ... postFields, author { ... authorFields } } }
               fragment postFields on Post { title }
               fragment authorFields on Author { id, name }")
-      :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}})))
+      :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}}))
+
+  (testing "Unions"
+    (given (core/execute!! blog-schema
+             "{ bloggers(handles: ['commenter1', 'commenter2']) { handle } }")
+      :data := {:bloggers '({:handle "commenter1"} {:handle "commenter2"})})))
 
 
 
