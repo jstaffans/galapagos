@@ -27,6 +27,11 @@
                  <token> = #'\\w+'
                  whitespace = #'\\s*'"))
 
+(defn- trim-quotes
+  "Trims single and double quotes from start and end of string."
+  [s]
+  (clojure.string/replace s #"(^[\"']|[\"']$)" ""))
+
 (def transform
   (partial insta/transform {:INTRO            (fn [& args] (into {} args))
                             :OP               (fn [op] [:op (keyword op)])
@@ -35,7 +40,7 @@
                             :ARG_NAME         (fn [name] (keyword name))
                             :ARG_VALUE_SCALAR (fn [value] value)
                             :ARG_VALUE_LIST   (fn [& list] (->> (clojure.string/split (apply str list) #"[,][ ]*")
-                                                                (mapv #(clojure.string/replace % #"(^[\"']|[\"']$)" ""))))
+                                                                (mapv trim-quotes)))
                             :ALIAS            (fn [alias] [:alias (keyword alias)])
                             :CALLS            (fn [& calls] [:calls (vec calls)])
                             :CALL             (fn [name args] (into {} [name args]))
