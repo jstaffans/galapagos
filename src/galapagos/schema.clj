@@ -27,6 +27,11 @@
   [name t]
   `(def ~name (merge ~t {:name (str (quote ~name))})))
 
+(defmacro defunion
+  [name ts]
+  `(def ~name {:fields     (into {} (map :fields ~ts))
+               :interfaces (mapcat :interfaces ~ts)}))
+
 (defmacro deftype
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))]

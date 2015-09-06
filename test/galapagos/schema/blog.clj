@@ -8,16 +8,18 @@
 ;; TODO: move syntax closer to Prismatic Schema (e.g. use :- operator)
 ;; TODO: accept Prismatic Schema schemas as types directly
 
-(schema/definterface Blogger
+(schema/definterface User
   {:fields {:id     {:type schema/GraphQLInt}
             :name   {:type schema/GraphQLString}
             :handle {:type schema/GraphQLString}}})
 
-(schema/deftype Commenter [Blogger]
+(schema/deftype Commenter [User]
   {:fields {:numComments {:type schema/GraphQLInt}}})
 
-(schema/deftype Author [Blogger]
+(schema/deftype Author [User]
   {:fields {:preferredEditor {:type PreferredEditor}}})
+
+(schema/defunion Blogger [Commenter Author])
 
 (schema/deftype Post []
   {:description "A blog post"
@@ -32,8 +34,8 @@
    :returns     [Blogger]
    :solve       (fn [{:keys [handles]}]
                   (async/go
-                    (map
-                      #(if (re-matches #"^commmenter.*" %)
+                    (mapv
+                      #(if (re-matches #"^commenter.*" %)
                         {:id 200 :name "Commenter" :handle % :numComments 5}
                         {:id 300 :name "Author" :handle % :preferredEditor :vim})
                       handles)))})
@@ -88,5 +90,6 @@
                  :profilePicture {:type FindProfilePicture :applies-to [Author]}}
 
    ;; TODO: add this as pre-processing step
-   :interfaces  {:Blogger Blogger}})
+   :interfaces  {:User User}
+   :unions      {:Blogger Blogger}})
 
