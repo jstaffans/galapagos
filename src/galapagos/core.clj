@@ -3,6 +3,7 @@
             [galapagos.util :as util]
             [galapagos.schema :as schema]
             [clojure.core.async :as async]
+            [schema.coerce :as coerce]
             [muse.core :as muse])
   (:refer-clojure :exclude [compile]))
 
@@ -34,11 +35,20 @@
   [query]
   (or (:alias query) (:name query)))
 
+(defn- coerced-args
+  [node query]
+  (let [coercer (coerce/coercer (:args node) coerce/string-coercion-matcher)
+        args    (or (:args query) {})
+        coerced (coercer args)]
+    (if-let [error-val (schema.utils/error-val coerced)]
+      (throw (IllegalArgumentException. (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
+      coerced)))
+
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
     ;; if we don't have arguments, solve using the parent value
-    (let [args (merge (:args query) value)]
+    (let [args (merge (coerced-args node query) value)]
       (reify
         muse/DataSource
         (fetch [_]
@@ -95,7 +105,7 @@
 (defrecord SolvableRawField [node query fields]
   Solvable
   (solve [_ value]
-    (let [args (merge (:args query) value)]
+    (let [args (merge (coerced-args node query) value)]
       (reify
         muse/DataSource
         (fetch [_]

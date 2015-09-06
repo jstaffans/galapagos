@@ -1,5 +1,6 @@
 (ns galapagos.schema.blog
   (:require [galapagos.schema :as schema]
+            [schema.core :as s]
             [clojure.core.async :as async]))
 
 (schema/defenum PreferredEditor :vim :emacs :sublime)
@@ -43,9 +44,8 @@
    :returns     Post
    :solve       (fn [{:keys [id]}]
                   (async/go
-                    ;; TODO: coercion
-                    (if (< (Integer/valueOf id) 3)
-                      {:id (Integer/valueOf id) :title (str "Post #" id)}
+                    (if (< id 3)
+                      {:id id :title (str "Post #" id)}
                       nil)))})
 
 
@@ -71,7 +71,7 @@
 
 (schema/deffield FindProfilePicture
   {:description "Returns the profile picture of the desired size."
-   :args        {:size schema/GraphQLString}
+   :args        {(s/optional-key :size) schema/GraphQLString}
    :returns     schema/GraphQLString
    :solve       (fn [{:keys [size] :as args}]
                   (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
