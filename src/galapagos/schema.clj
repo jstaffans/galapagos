@@ -35,8 +35,10 @@
 (defmacro deftype
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))]
-    `(def ~name (merge ~t {:name       (str (quote ~name))
-                           :interfaces (map keyword ~interface-names)}))))
+    `(do
+       (def ~name (merge ~t {:name       (str (quote ~name))
+                             :interfaces (map keyword ~interface-names)}))
+       (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro deffield
   [name t]

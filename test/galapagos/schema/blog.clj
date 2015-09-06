@@ -36,8 +36,8 @@
                   (async/go
                     (mapv
                       #(if (re-matches #"^commenter.*" %)
-                        {:id 200 :name "Commenter" :handle % :numComments 5}
-                        {:id 300 :name "Author" :handle % :preferredEditor :vim})
+                        (->Commenter {:id 200 :name "Commenter" :handle % :numComments 5})
+                        (->Author {:id 300 :name "Author" :handle % :preferredEditor :vim}))
                       handles)))})
 
 (schema/deffield FindPost
@@ -47,7 +47,7 @@
    :solve       (fn [{:keys [id]}]
                   (async/go
                     (if (< id 3)
-                      {:id id :title (str "Post #" id)}
+                      (->Post {:id id :title (str "Post #" id)})
                       nil)))})
 
 
@@ -66,10 +66,10 @@
    :returns     Author
    :solve       (fn [args]
                   (async/go
-                    {:id 123
-                     :name (str "Author Of " (get-in args ['Post :title]))
-                     :preferredEditor :vim
-                     :handle (str "author-123")}))})
+                    (->Author {:id              123
+                               :name            (str "Author Of " (get-in args ['Post :title]))
+                               :preferredEditor :vim
+                               :handle          (str "author-123")})))})
 
 (schema/deffield FindProfilePicture
   {:description "Returns the profile picture of the desired size."
@@ -82,14 +82,15 @@
 (def QueryRoot
   {:name        "QueryRoot"
    :description "The query root for this schema"
+
    :fields      {:post           {:type FindPost}
                  :posts          {:type FindPosts}
                  :bloggers       {:type FindBloggers}
-                 ;; TODO: do something with applies-to
+                 ;; TODO: do something with applies-to (validation)
                  :author         {:type FindAuthor :applies-to [Post]}
                  :profilePicture {:type FindProfilePicture :applies-to [Author]}}
 
-   ;; TODO: add this as pre-processing step
+   ;; TODO: add these as pre-processing step. Are unions needed?
    :interfaces  {:User User}
    :unions      {:Blogger Blogger}})
 

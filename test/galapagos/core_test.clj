@@ -52,9 +52,7 @@
                 }
              }")
       :data := {:post {:author {:smallPic "url/for/id/123?size=small"
-                                :largePic "url/for/id/123?size=large"}}})
-
-    )
+                                :largePic "url/for/id/123?size=large"}}}))
 
   (testing "Lists"
     (given (core/execute!! blog-schema "{ posts { id, title } }")
@@ -67,13 +65,22 @@
       :data := {:posts [{:author {:name "Author Of Some post"}}
                         {:author {:name "Author Of Another post"}}]}))
 
-
   (testing "Fragments"
     (given (core/execute!! blog-schema
              "{ post(id: 1) { id, ... postFields, author { ... authorFields } } }
               fragment postFields on Post { title }
               fragment authorFields on Author { id, name }")
-      :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}}))
+      :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}})
+    (given (core/execute!! blog-schema
+             "{ bloggers(handles: ['commenter1', 'author2']) {
+                  id, handle, ... commenterFields, ... authorFields
+                }
+              }
+
+              fragment commenterFields on Commenter { numComments }
+              fragment authorFields on Author { preferredEditor }")
+      :data := {:bloggers [{:id 200 :handle "commenter1" :numComments 5}
+                           {:id 300 :handle "author2" :preferredEditor :vim}]}))
 
   (testing "Unions"
     (given (core/execute!! blog-schema

@@ -80,8 +80,17 @@
 ;; A leaf that looks up keys in a parent map or record.
 (defrecord SolvableLookupField [fields key-names]
   Solvable
-  (solve [_ value]
-    (let [solution (reduce #(assoc %1 %2 (get (first (vals value)) %2)) {} key-names)]
+  (solve [_ parent]
+    (let [value (first (vals parent))
+          solution (reduce (fn [acc k]
+                             ;; if keys have "on" metadata, it comes from a fragment and
+                             ;; we have to check that the value is of the correct type
+                             (let [key-meta (:on (meta k))
+                                   value-meta (:type (meta value))]
+                               (if (and key-meta value-meta (not= key-meta value-meta))
+                                 acc
+                                 (assoc acc (:name k) (get value (:name k))))))
+                     {} key-names)]
       (reify
         muse/DataSource
         (fetch [_] (async/go solution))
@@ -134,10 +143,10 @@
 
    Example:
 
-   [#SolvableLookupField{:fields [GraphQLInt], :key-names [:id]}
-    #SolvableLookupField{:fields [GraphQLString], :key-names [:name]}]
+   [#SolvableLookupField{:fields [GraphQLInt], :key-names [{:name :id}]}
+    #SolvableLookupField{:fields [GraphQLString], :key-names [{:name :fullname]}]
 
-    -> [#SolvableLookupField{:fields [GraphQLInt GraphQLString], :key-names [:id :name]}]
+    -> [#SolvableLookupField{:fields [GraphQLInt GraphQLString], :key-names [{:name :id} {:name :fullname}]}]
    "
   [fields]
   (let [mergeable? #(instance? SolvableLookupField %)
@@ -165,9 +174,14 @@
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
 (defn- collect-fields
+  "Collects fields defined in fragments and merges then with the selection fields.
+  Fragment fields are tagged with :on metadata to distinguish them from selection-defined fields."
   [query fragments]
-  ;; TODO: type validation
-  (reduce #(into %1 (get-in fragments [%2 :fields])) (:fields query) (:fragments query)))
+  (reduce (fn [acc fragment]
+            (let [fragment-on (get-in fragments [fragment :on])
+                  fragment-fields (mapv #(with-meta % {:on fragment-on}) (get-in fragments [fragment :fields]))]
+              (into acc fragment-fields)))
+    (:fields query) (:fragments query)))
 
 (defn- returns-primitive?
   [node]
@@ -185,7 +199,7 @@
        (->SolvableRoot node fields)
 
        (cond
-         (schema/primitive? node)  (->SolvableLookupField [node] [(:name query)])
+         (schema/primitive? node)  (->SolvableLookupField [node] [query])
          (returns-primitive? node) (->SolvableRawField node query [node])
          :else                     (->SolvableNode node query (merge-children fields)))))))
 
