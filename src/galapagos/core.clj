@@ -170,14 +170,21 @@
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
+(defn- inline-fragment?
+  [fragment]
+  (not (keyword? fragment)))
+
+(defn- attach-type-metadata
+  [on field]
+  (with-meta field {:on on}))
+
 (defn- collect-fields
   "Collects fields defined in fragments and merges then with the selection fields.
   Fragment fields are tagged with :on metadata to distinguish them from selection-defined fields."
   [query fragments]
   (reduce (fn [acc fragment]
-            (let [fragment-on (get-in fragments [fragment :on])
-                  fragment-fields (mapv #(with-meta % {:on fragment-on}) (get-in fragments [fragment :fields]))]
-              (into acc fragment-fields)))
+            (let [f (if (inline-fragment? fragment) fragment (get-in fragments [fragment]))]
+              (into acc (mapv (partial attach-type-metadata (:on f)) (:fields f)))))
     (:fields query) (:fragments query)))
 
 (defn- returns-primitive?

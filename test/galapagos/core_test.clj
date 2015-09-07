@@ -72,6 +72,9 @@
               fragment authorFields on Author { id, name }")
       :data := {:post {:id 1 :title "Post #1" :author {:id 123 :name "Author Of Post #1"}}})
     (given (core/execute!! blog-schema
+             "{ post(id: 1) { id, ... on Post { title } } }")
+      :data := {:post {:id 1 :title "Post #1"}})
+    (given (core/execute!! blog-schema
              "{ bloggers(handles: ['commenter1', 'author2']) {
                   id, handle, ... commenterFields, ... authorFields
                 }
