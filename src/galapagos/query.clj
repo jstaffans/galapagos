@@ -6,9 +6,13 @@
 
 (def parser
   (insta/parser "ROOT = INTRO? SELECTION <whitespace> FRAGMENTS? <whitespace>
-                 INTRO = OP <whitespace> NAME
+                 INTRO = OP <whitespace> NAME <whitespace> (VARS)?
                  OP = 'query' | 'mutation'
                  NAME = token
+                 VARS = <whitespace> <'('> VAR (<','> VAR)* <')'> <whitespace>
+                 <VAR> = <whitespace> VAR_NAME <':'> <whitespace> VAR_TYPE <whitespace>
+                 VAR_NAME = <'$'> token
+                 VAR_TYPE = ('String' | 'Int' | 'Float' | 'Boolean' | 'ID')
                  ARGS = <whitespace> <'('> ARG (<','> ARG)* <')'> <whitespace>
                  <ARG> = <whitespace> ARG_NAME <':'> <whitespace> (ARG_VALUE_LITERAL | ARG_VALUE_LIST) <whitespace>
                  ARG_NAME = token
@@ -40,6 +44,9 @@
   (partial insta/transform {:INTRO             (fn [& args] (into {} args))
                             :OP                (fn [op] [:op (keyword op)])
                             :NAME              (fn [name] [:name (keyword name)])
+                            :VARS              (fn [& vars] [:variables (zipmap (take-nth 2 vars) (take-nth 2 (rest vars)))])
+                            :VAR_NAME          (fn [name] (str "$" name))
+                            :VAR_TYPE          (fn [type] type)
                             :ARGS              (fn [& args] [:args (zipmap (take-nth 2 args) (take-nth 2 (rest args)))])
                             :ARG_NAME          (fn [name] (keyword name))
                             :ARG_VALUE_LITERAL (fn [literal] (parse-literal literal))

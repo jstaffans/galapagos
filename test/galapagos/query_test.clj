@@ -46,7 +46,10 @@
   (testing "Input arguments"
     (given (query/parse "{ bloggers(id: 1, names: ['john', \"adam\"]) }")
       :fields := [{:name :bloggers :args {:id "1" :names ["john" "adam"]}}]))
-  )
+
+  (testing "Variables"
+    (given (query/parse "query getFoo ($var1: Int) { post(id: $var1) { title } }")
+      :variables := {"$var1" "Int"})))
 
 
 
