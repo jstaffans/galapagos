@@ -21,7 +21,7 @@
 (defrecord SolvableRoot [node fields]
   Solvable
   (solve [_ _] (throw (IllegalStateException. "Root node should not be directly solved!")))
-  (arity [_] :root)
+  (arity [_] :root)                                         ; Not really an arity!
   (acc-fn [_] #(assoc {} :data %))
 
   Visited
@@ -201,6 +201,7 @@
 
 (defmulti traverse-node (fn [graph _ _] (arity graph)))
 
+;; No solving at the root node
 (defmethod traverse-node :root
   [_ field parent]
   (traverse field parent))
