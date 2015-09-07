@@ -12,7 +12,6 @@
 (defprotocol Solvable
   (solve [this value])
   (arity [this])
-  (traverse-fn [this])
   (acc-fn [this]))
 
 (defprotocol Visited
@@ -22,8 +21,7 @@
 (defrecord SolvableRoot [node fields]
   Solvable
   (solve [_ _] (throw (IllegalStateException. "Root node should not be directly solved!")))
-  (arity [_] :one)
-  (traverse-fn [_] traverse-root)
+  (arity [_] :root)
   (acc-fn [_] #(assoc {} :data %))
 
   Visited
@@ -65,9 +63,6 @@
 
   (arity [_] (:arity node))
 
-  (traverse-fn [this]
-    (if (= (arity this) :many) traverse-many traverse-one))
-
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
     #(assoc {} (resolve-name query) %))
@@ -100,8 +95,6 @@
 
   (arity [_] :one)
 
-  (traverse-fn [_] traverse-one)
-
   ;; At leaves, we use the result directly
   (acc-fn [_] #(into {} %))
 
@@ -126,8 +119,6 @@
         (resource-id [_] [value (resolve-name query)]))))
 
   (arity [_] :one)
-
-  (traverse-fn [_] traverse-one)
 
   (acc-fn [_] #(into {} %))
 
@@ -207,11 +198,14 @@
          (returns-primitive? node) (->SolvableRawField node query [node])
          :else                     (->SolvableNode node query (merge-children fields)))))))
 
-(defn- traverse-root
+
+(defmulti traverse-node (fn [graph _ _] (arity graph)))
+
+(defmethod traverse-node :root
   [_ field parent]
   (traverse field parent))
 
-(defn- traverse-one
+(defmethod traverse-node :one
   [graph field parent]
   ;; Solution is either a leaf node (which we'll solve directly,
   ;; terminating the recursion) or a single new traversable node.
@@ -225,7 +219,7 @@
           (traverse field solution)))
       (solve graph parent))))
 
-(defn- traverse-many
+(defmethod traverse-node :many
   [graph field parent]
   ;; Solution is a collection of traversable nodes.
   ;; Use muse/traverse to iterate over all of them.
@@ -238,7 +232,7 @@
 
 (defmulti merge-siblings (fn [graph _] (arity graph)))
 
-(defmethod merge-siblings :one [_ muses] (into {} muses))
+(defmethod merge-siblings :default [_ muses] (into {} muses))
 
 (defmethod merge-siblings :many [_ muses] (apply (partial map merge) muses))
 
@@ -251,7 +245,7 @@
               (fn [& muses]
                 ; merge the sibling muses into one map or list of maps
                 (merge-siblings graph muses)))
-       (map #((traverse-fn graph) graph % parent) (:fields graph))))))
+       (map #(traverse-node graph % parent) (:fields graph))))))
 
 
 (defn execute!
