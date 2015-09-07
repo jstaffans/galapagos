@@ -39,7 +39,9 @@
     (given (query/parse "{ post { ... postFields } }
                          fragment postFields on Post { id, title }")
       :fields := [{:name :post, :fields [], :fragments [:postFields]}]
-      :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}}))
+      :fragments := {:postFields {:on :Post :fields [{:name :id} {:name :title}], :fragments []}})
+    (given (query/parse "{ post { id, ... on Post { title } } }")
+      :fields := [{:name :post, :fields [{:name :id}], :fragments [{:on :Post :fields [{:name :title}], :fragments []}]}]))
 
   (testing "Input arguments"
     (given (query/parse "{ bloggers(id: 1, names: ['john', \"adam\"]) }")
