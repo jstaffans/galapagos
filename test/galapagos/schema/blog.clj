@@ -25,7 +25,8 @@
 
 (schema/deftype Author [User]
   {:fields {:preferredEditor {:type PreferredEditor}
-            :profilePicture  {:type FindProfilePicture}}})
+            :profilePicture  {:type FindProfilePicture}
+            :averageRating   {:type schema/GraphQLFloat}}})
 
 (schema/deffield FindAuthor
   {:description "Finds the author of a post"
@@ -37,6 +38,18 @@
                                :name            (str "Author Of " (get-in args ['Post :title]))
                                :preferredEditor :VIM
                                :handle          (str "author-123")})))})
+
+(schema/deffield FindAuthors
+  {:description "Finds authors by preferred editor"
+   :args        {:preferredEditor         PreferredEditor
+                 (s/optional-key :rating) schema/GraphQLFloat}
+   :returns     [Author]
+   :solve       (fn [{:keys [preferredEditor rating]}]
+                  (async/go
+                    [(->Author {:id              256
+                                :name            (str "Author Who Likes " (name preferredEditor))
+                                :preferredEditor preferredEditor
+                                :handle          (str "author-256")})]))})
 
 (schema/defunion Blogger [Commenter Author])
 
@@ -83,9 +96,10 @@
   {:name        "QueryRoot"
    :description "The query root for this schema"
 
-   :fields      {:post           {:type FindPost}
-                 :posts          {:type FindPosts}
-                 :bloggers       {:type FindBloggers}}
+   :fields      {:post     {:type FindPost}
+                 :posts    {:type FindPosts}
+                 :bloggers {:type FindBloggers}
+                 :authors  {:type FindAuthors}}
 
    ;; TODO: add these as pre-processing step. Are unions needed?
    :interfaces  {:User User}

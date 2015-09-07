@@ -23,7 +23,7 @@
     (given (core/execute!! blog-schema "{ post(id: 1) { author { name } } }")
       :data := {:post {:author {:name "Author Of Post #1"}}})
     (given (core/execute!! blog-schema "{ post(id: 1) { author { name, preferredEditor } } }")
-      :data := {:post {:author {:name "Author Of Post #1" :preferredEditor :vim}}}))
+      :data := {:post {:author {:name "Author Of Post #1" :preferredEditor :VIM}}}))
 
   (testing "Named fields"
     (given (core/execute!! blog-schema
@@ -41,7 +41,7 @@
              "{ post(id: 1) { author { profilePicture } } }")
       :data := {:post {:author {:profilePicture "url/for/id/123?size=default"}}})
     (given (core/execute!! blog-schema
-             "{ post(id: 1) { author { profilePicture(size: small) } } }")
+             "{ post(id: 1) { author { profilePicture(size: 'small') } } }")
       :data := {:post {:author {:profilePicture "url/for/id/123?size=small"}}})
     (given (core/execute!! blog-schema
              "{ post(id: 1) {
@@ -83,7 +83,7 @@
               fragment commenterFields on Commenter { numComments }
               fragment authorFields on Author { preferredEditor }")
       :data := {:bloggers [{:id 200 :handle "commenter1" :numComments 5}
-                           {:id 300 :handle "author2" :preferredEditor :vim}]}))
+                           {:id 300 :handle "author2" :preferredEditor :VIM}]}))
 
   (testing "Unions"
     (given (core/execute!! blog-schema
