@@ -19,8 +19,6 @@ Galapagos is still very much pre-alpha software and nearly everything is subject
 The schema definition DSL is still a work-in-progress. Prismatic's schema library is used
 for validation and coercion and I'd like to move galapagos' DSL closer to that used in Prismatic/schema. 
 
-Not all GraphQL built-in types are suppored yet. 
-
 ### Queries
 
 Directives and query variables are missing. Validation is lacking. Introspection is not yet implemented.
