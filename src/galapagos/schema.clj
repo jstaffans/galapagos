@@ -11,6 +11,9 @@
 
 (def GraphQLScalar s/Any)
 
+(def GraphQLBoolean s/Bool)
+
+;; TODO: pretty crude way of determining if something is one of the above
 (defn primitive?
   [t]
   (or
