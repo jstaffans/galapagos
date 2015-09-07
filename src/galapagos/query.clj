@@ -16,10 +16,8 @@
                  ARG_VALUE_LIST = <'['> <whitespace> (#'.'+) <whitespace> <']'>
                  SELECTION = <whitespace> <'{'> (FIELD | FRAGMENT_SPREAD) ((<','>)? (FIELD | FRAGMENT_SPREAD))* <'}'> <whitespace>
                  FRAGMENT_SPREAD = <whitespace> <'...'> (<whitespace>)? FRAGMENT_NAME <whitespace>
-                 FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS | CALLS)? <whitespace> SELECTION? <whitespace>
+                 FIELD = <whitespace> (ALIAS <':'> <whitespace>)? NAME(ARGS)? <whitespace> SELECTION? <whitespace>
                  ALIAS = token
-                 CALLS = CALL+
-                 CALL = <'.'> NAME ARGS
                  FRAGMENTS = FRAGMENT*
                  FRAGMENT = <'fragment'> <whitespace> FRAGMENT_NAME <whitespace> <'on'> <whitespace> FRAGMENT_ON (SELECTION)*
                  FRAGMENT_NAME = token
@@ -42,8 +40,6 @@
                             :ARG_VALUE_LIST   (fn [& list] (->> (clojure.string/split (apply str list) #"[,][ ]*")
                                                                 (mapv trim-quotes)))
                             :ALIAS            (fn [alias] [:alias (keyword alias)])
-                            :CALLS            (fn [& calls] [:calls (vec calls)])
-                            :CALL             (fn [name args] (into {} [name args]))
                             :SELECTION        (fn [& selections] (assoc {}
                                                                    :fields (vec (filter coll? selections))
                                                                    :fragments (vec (filter keyword? selections))))
