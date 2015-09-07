@@ -162,10 +162,7 @@
 (defn get-field-definition
   [root node query]
   (if-let [field (or
-                   ;; types can be defined either at individual nodes
-                   ;; or at the root of the schema
                    (get-in node [:fields (:name query) :type])
-                   (get-in root [:fields (:name query) :type])
                    (first (keep
                             (fn [interface]
                               (get-in root [:interfaces interface :fields (:name query) :type]))

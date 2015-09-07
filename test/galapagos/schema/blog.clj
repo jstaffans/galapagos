@@ -16,17 +16,36 @@
 (schema/deftype Commenter [User]
   {:fields {:numComments {:type schema/GraphQLInt}}})
 
+(schema/deffield FindProfilePicture
+  {:description "Returns the profile picture of the desired size."
+   :args        {(s/optional-key :size) schema/GraphQLString}
+   :returns     schema/GraphQLString
+   :solve       (fn [{:keys [size] :as args}]
+                  (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
+
 (schema/deftype Author [User]
-  {:fields {:preferredEditor {:type PreferredEditor}}})
+  {:fields {:preferredEditor {:type PreferredEditor}
+            :profilePicture  {:type FindProfilePicture}}})
+
+(schema/deffield FindAuthor
+  {:description "Finds the author of a post"
+   :args        {}
+   :returns     Author
+   :solve       (fn [args]
+                  (async/go
+                    (->Author {:id              123
+                               :name            (str "Author Of " (get-in args ['Post :title]))
+                               :preferredEditor :vim
+                               :handle          (str "author-123")})))})
 
 (schema/defunion Blogger [Commenter Author])
 
 (schema/deftype Post []
   {:description "A blog post"
-   :fields      {:id    {:type schema/GraphQLInt :description "The ID"}
-                 :title {:type schema/GraphQLString :description "The title"}
-                 :date  {:type schema/GraphQLScalar :description "The publishing date"}}})
-
+   :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
+                 :title  {:type schema/GraphQLString :description "The title"}
+                 :date   {:type schema/GraphQLScalar :description "The publishing date"}
+                 :author {:type FindAuthor}}})
 
 (schema/deffield FindBloggers
   {:description "Finds bloggers by handles"
@@ -60,35 +79,13 @@
                     [{:id 1 :title "Some post"}
                      {:id 2 :title "Another post"}]))})
 
-(schema/deffield FindAuthor
-  {:description "Finds the author of a post"
-   :args        {}
-   :returns     Author
-   :solve       (fn [args]
-                  (async/go
-                    (->Author {:id              123
-                               :name            (str "Author Of " (get-in args ['Post :title]))
-                               :preferredEditor :vim
-                               :handle          (str "author-123")})))})
-
-(schema/deffield FindProfilePicture
-  {:description "Returns the profile picture of the desired size."
-   :args        {(s/optional-key :size) schema/GraphQLString}
-   :returns     schema/GraphQLString
-   :solve       (fn [{:keys [size] :as args}]
-                  (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
-
-
 (def QueryRoot
   {:name        "QueryRoot"
    :description "The query root for this schema"
 
    :fields      {:post           {:type FindPost}
                  :posts          {:type FindPosts}
-                 :bloggers       {:type FindBloggers}
-                 ;; TODO: do something with applies-to (validation)
-                 :author         {:type FindAuthor :applies-to [Post]}
-                 :profilePicture {:type FindProfilePicture :applies-to [Author]}}
+                 :bloggers       {:type FindBloggers}}
 
    ;; TODO: add these as pre-processing step. Are unions needed?
    :interfaces  {:User User}
