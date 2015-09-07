@@ -3,7 +3,7 @@
             [schema.core :as s]
             [clojure.core.async :as async]))
 
-(schema/defenum PreferredEditor :vim :emacs :sublime)
+(schema/defenum PreferredEditor :VIM :EMACS :JOE)
 
 ;; TODO: move syntax closer to Prismatic Schema (e.g. use :- operator)
 ;; TODO: accept Prismatic Schema schemas as types directly
@@ -35,7 +35,7 @@
                   (async/go
                     (->Author {:id              123
                                :name            (str "Author Of " (get-in args ['Post :title]))
-                               :preferredEditor :vim
+                               :preferredEditor :VIM
                                :handle          (str "author-123")})))})
 
 (schema/defunion Blogger [Commenter Author])
@@ -56,7 +56,7 @@
                     (mapv
                       #(if (re-matches #"^commenter.*" %)
                         (->Commenter {:id 200 :name "Commenter" :handle % :numComments 5})
-                        (->Author {:id 300 :name "Author" :handle % :preferredEditor :vim}))
+                        (->Author {:id 300 :name "Author" :handle % :preferredEditor :VIM}))
                       handles)))})
 
 (schema/deffield FindPost
