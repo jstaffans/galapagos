@@ -8,14 +8,16 @@
 ;; TODO: move syntax closer to Prismatic Schema (e.g. use :- operator)
 ;; TODO: accept Prismatic Schema schemas as types directly
 
-(schema/definterface User
+(schema/definterface BlogUser
   {:fields {:id     {:type schema/GraphQLInt}
             :name   {:type schema/GraphQLString}
             :handle {:type schema/GraphQLString}}})
 
-(schema/deftype Commenter [User]
+(schema/deftype Commenter [BlogUser]
   {:fields {:numComments {:type schema/GraphQLInt}}})
 
+;; TODO: This is actually a leaf which takes an optional input argument.
+;; Must be treated as such in introspection.
 (schema/deffield FindProfilePicture
   {:description "Returns the profile picture of the desired size."
    :args        {(s/optional-key :size) schema/GraphQLString}
@@ -23,7 +25,7 @@
    :solve       (fn [{:keys [size] :as args}]
                   (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
 
-(schema/deftype Author [User]
+(schema/deftype Author [BlogUser]
   {:fields {:preferredEditor {:type PreferredEditor}
             :profilePicture  {:type FindProfilePicture}
             :averageRating   {:type schema/GraphQLFloat}}})
