@@ -86,10 +86,9 @@
   [name r]
   `(def ~name ~r))
 
-;; TODO: pre-processing
-;; TODO: schema is not really needed for execution, but for validation and introspection it probably will be
+;; TODO: can perform any pre-processing here
 (defn create-schema
   [root]
-  {:schema root :root root})
+  {:root root})
 
 
