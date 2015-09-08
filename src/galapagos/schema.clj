@@ -3,9 +3,9 @@
   (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype definterface]))
 
-(def types (atom []))
+(def types (atom {}))
 
-(def fields (atom []))
+(def fields (atom {}))
 
 ;; ID can be an integer or an UUID
 (def GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
@@ -16,9 +16,19 @@
 
 (def GraphQLString s/Str)
 
-(def GraphQLScalar s/Any)
-
 (def GraphQLBoolean s/Bool)
+
+(defn update-types!
+  [& args]
+  (doseq [[type definition] (partition 2 args)]
+    (swap! types #(assoc % type definition))))
+
+(update-types!
+  :ID {:kind :SCALAR}
+  :Int {:kind :SCALAR}
+  :Float {:kind :SCALAR}
+  :String {:kind :SCALAR}
+  :Boolean {:kind :SCALAR})
 
 ;; TODO: pretty crude way of determining if something is one of the above
 (defn primitive?
@@ -33,14 +43,25 @@
   `(def ~name
      (s/enum ~@values)))
 
+(defmacro defscalar
+  [name kind]
+  (let [k (keyword name)]
+    `(do
+       (def ~name ~kind)
+       (update-types! ~(keyword name) {:kind :SCALAR}))))
+
 (defmacro definterface
   [name t]
-  `(def ~name (merge ~t {:name (str (quote ~name))})))
+  `(do
+     (def ~name (merge ~t {:name (str (quote ~name))}))
+     (update-types! ~(keyword name) {:kind :INTERFACE})))
 
 (defmacro defunion
   [name ts]
-  `(def ~name {:fields     (into {} (map :fields ~ts))
-               :interfaces (mapcat :interfaces ~ts)}))
+  `(do
+     (def ~name {:fields     (into {} (map :fields ~ts))
+                 :interfaces (mapcat :interfaces ~ts)})
+     (update-types! ~(keyword name) {:kind :UNION})))
 
 (defmacro deftype
   [name interfaces t]
@@ -50,7 +71,7 @@
                              :interfaces (map keyword ~interface-names)}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
-(defmacro deffield
+(defmacro defobject
   [name t]
   (let [ret (:returns t)
         [type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
@@ -59,6 +80,14 @@
          (assoc ~t :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
          {:name (str (quote ~name))}))))
 
+(defmacro deffield
+  [name t]
+  (let [ret (:returns t)
+        [type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
+    `(def ~name
+       (merge
+         (assoc ~t :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
+         {:name (str (quote ~name))}))))
 
 ;; TODO: pre-processing
 ;; TODO: schema is not really needed for execution, but for validation and introspection it probably will be
