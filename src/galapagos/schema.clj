@@ -53,7 +53,7 @@
 (defmacro definterface
   [name t]
   `(do
-     (def ~name (merge ~t {:name (str (quote ~name))}))
+     (def ~name ~t)
      (update-types! ~(keyword name) {:kind :INTERFACE})))
 
 (defmacro defunion
@@ -64,30 +64,27 @@
      (update-types! ~(keyword name) {:kind :UNION})))
 
 (defmacro deftype
+  "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))]
     `(do
-       (def ~name (merge ~t {:name       (str (quote ~name))
-                             :interfaces (map keyword ~interface-names)}))
+       (def ~name (merge ~t {:interfaces (map keyword ~interface-names)}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
-(defmacro defobject
-  [name t]
-  (let [ret (:returns t)
-        [type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
-    `(def ~name
-       (merge
-         (assoc ~t :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
-         {:name (str (quote ~name))}))))
-
 (defmacro deffield
-  [name t]
-  (let [ret (:returns t)
-        [type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
-    `(def ~name
-       (merge
-         (assoc ~t :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
-         {:name (str (quote ~name))}))))
+  "Defines a field that fetches something."
+  [name s ret f]
+  (if (= :- s)
+    (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
+      `(def ~name
+         (merge
+           (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
+           {:returns ~ret})))
+    (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
+
+(defmacro defroot
+  [name r]
+  `(def ~name ~r))
 
 ;; TODO: pre-processing
 ;; TODO: schema is not really needed for execution, but for validation and introspection it probably will be
