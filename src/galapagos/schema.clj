@@ -3,7 +3,8 @@
   (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype definterface]))
 
-(def GraphQLID s/Int)
+;; ID can be an integer or an UUID
+(def GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
 
 (def GraphQLInt s/Int)
 
