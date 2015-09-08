@@ -254,7 +254,7 @@
   See execute!! for the blocking version.
 
   (galapagos.core/execute!
-    galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
+    (galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
     \"{ post(id: 1) { title } }\"))"
   [{:keys [root]} query-string]
   (let [query (parse query-string)
@@ -265,7 +265,7 @@
   "Blocking execution. See execute! for the non-blocking version.
 
   (galapagos.core/execute!!
-    galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
+    (galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
    \"{ post(id: 1) { title } }\"))"
   [& args]
   (async/<!! (apply execute! args)))
