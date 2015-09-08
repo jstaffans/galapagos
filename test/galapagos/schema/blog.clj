@@ -76,7 +76,7 @@
 
 (schema/deffield FindPost
   {:description "Finds a post by id"
-   :args        {:id schema/GraphQLInt}
+   :args        {:id schema/GraphQLID}
    :returns     Post
    :solve       (fn [{:keys [id]}]
                   (async/go
@@ -104,6 +104,6 @@
                  :authors  {:type FindAuthors}}
 
    ;; TODO: add these as pre-processing step. Are unions needed?
-   :interfaces  {:User User}
+   :interfaces  {:BlogUser BlogUser}
    :unions      {:Blogger Blogger}})
 

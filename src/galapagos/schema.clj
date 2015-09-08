@@ -3,6 +3,8 @@
   (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype definterface]))
 
+(def GraphQLID s/Int)
+
 (def GraphQLInt s/Int)
 
 (def GraphQLFloat s/Num)
