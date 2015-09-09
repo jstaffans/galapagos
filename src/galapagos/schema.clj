@@ -1,11 +1,11 @@
 (ns galapagos.schema
-  (:require [schema.core :as s])
+  (:require [galapagos.introspection :as introspection]
+            [schema.core :as s]
+            [clojure.core.async :as async])
   (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype definterface]))
 
 (def types (atom {}))
-
-(def fields (atom {}))
 
 ;; ID can be an integer or an UUID
 (def GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
@@ -18,17 +18,13 @@
 
 (def GraphQLBoolean s/Bool)
 
-(defn update-types!
-  [& args]
-  (doseq [[type definition] (partition 2 args)]
-    (swap! types #(assoc % type definition))))
-
-(update-types!
-  :ID {:kind :SCALAR}
-  :Int {:kind :SCALAR}
-  :Float {:kind :SCALAR}
-  :String {:kind :SCALAR}
-  :Boolean {:kind :SCALAR})
+(def builtin-types
+  {
+   :ID      {:kind :SCALAR}
+   :Int     {:kind :SCALAR}
+   :Float   {:kind :SCALAR}
+   :String  {:kind :SCALAR}
+   :Boolean {:kind :SCALAR}})
 
 ;; TODO: pretty crude way of determining if something is one of the above
 (defn primitive?
@@ -46,29 +42,28 @@
 (defmacro defscalar
   [name kind]
   (let [k (keyword name)]
-    `(do
-       (def ~name ~kind)
-       (update-types! ~(keyword name) {:kind :SCALAR}))))
+    `(def ~name ~kind)))
 
 (defmacro definterface
   [name t]
-  `(do
-     (def ~name ~t)
-     (update-types! ~(keyword name) {:kind :INTERFACE})))
+  `(def ~name ~t))
 
 (defmacro defunion
   [name ts]
-  `(do
-     (def ~name {:fields     (into {} (map :fields ~ts))
-                 :interfaces (mapcat :interfaces ~ts)})
-     (update-types! ~(keyword name) {:kind :UNION})))
+  `(def ~name {:fields     (into {} (map :fields ~ts))
+               :interfaces (mapcat :interfaces ~ts)}))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))]
     `(do
-       (def ~name (merge ~t {:interfaces (map keyword ~interface-names)}))
+       (def ~name (with-meta
+                    (merge ~t {:interfaces (map keyword ~interface-names)})
+                    {:introspection
+                     {:is-type? true
+                      :name ~(keyword name)
+                      :kind :OBJECT}}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro deffield
@@ -82,13 +77,44 @@
            {:returns ~ret})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
+;; Introspection types
+
+(defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
+
+(deftype TypeDescription []
+  {:fields {:kind        {:type TypeKind}
+            :name        {:type GraphQLString}
+            :description {:type GraphQLString}}})
+
+
+(deffield FindType :- TypeDescription
+  {:description "Finds a type by name"
+   :args {:name GraphQLString}
+   ; solve added once we have the root
+   })
+
+(defn- solve-type
+  [type-map]
+  (fn [{:keys [name]}]
+    (async/go
+      (let [type-definition (get type-map (keyword name))]
+        (->TypeDescription
+          {:name        (:name type-definition)
+           :description (:description type-definition)})))))
+
 (defmacro defroot
   [name r]
   `(def ~name ~r))
 
+(defn- build-type-map
+  [root]
+  (let [types (introspection/walk root (atom {}))]
+    (reduce-kv (fn [acc name type] (assoc acc name type)) {} @types)))
+
 ;; TODO: can perform any pre-processing here
 (defn create-schema
   [root]
-  {:root root})
+  (let [type-map (build-type-map root)]
+    {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
 
 
