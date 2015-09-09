@@ -1,6 +1,7 @@
-(ns galapagos.introspection)
+(ns galapagos.introspection
+  (:require [galapagos.util :as util]))
 
-(defn register-type
+(defn- register-type
   [types type]
   (let [name (-> (meta type) :introspection :name)]
     (swap! types #(assoc % name (assoc type :name name)))))
@@ -8,7 +9,8 @@
 (defn walk
   [root types]
   (clojure.walk/postwalk
-    #(if (-> (meta %) :introspection :is-type?)
-      (register-type types %)
-      %) root)
+    #(cond
+      (-> (meta %) :introspection :is-type?) (register-type types %)
+      :else %)
+    root)
   types)

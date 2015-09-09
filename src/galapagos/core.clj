@@ -36,7 +36,7 @@
 (defn- coerced-args
   [node query]
   (let [coercer (coerce/coercer (:args node) coerce/string-coercion-matcher)
-        args    (or (:args query) {})
+        args (or (:args query) {})
         coerced (coercer args)]
     (if-let [error-val (schema.utils/error-val coerced)]
       (throw (IllegalArgumentException. (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
@@ -180,7 +180,7 @@
 
 (defn- returns-primitive?
   [node]
-  (and (:returns node) (schema/primitive? (:returns node))))
+  (and (:returns node) (util/scalar? (:returns node))))
 
 (defn- compile
   "Compiles query into a traversable graph."
@@ -194,9 +194,9 @@
        (->SolvableRoot node fields)
 
        (cond
-         (schema/primitive? node)  (->SolvableLookupField [node] [query])
+         (util/scalar? node) (->SolvableLookupField [node] [query])
          (returns-primitive? node) (->SolvableRawField node query [node])
-         :else                     (->SolvableNode node query (merge-children fields)))))))
+         :else (->SolvableNode node query (merge-children fields)))))))
 
 
 (defmulti traverse-node (fn [graph _ _] (arity graph)))
