@@ -10,4 +10,6 @@
                  [muse "0.4.0"]
                  [cats "0.4.0"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
-  :profiles {:dev {:dependencies [[juxt/iota "0.1.2"]]}})
+  :profiles {:dev
+             {:dependencies [[juxt/iota "0.1.2"]]
+              :plugins      [[michaelblume/lein-marginalia "0.9.0"]]}})
