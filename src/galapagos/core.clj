@@ -1,7 +1,6 @@
 (ns galapagos.core
   (:require [galapagos.query :refer [parse]]
             [galapagos.util :as util]
-            [galapagos.schema :as schema]
             [clojure.core.async :as async]
             [schema.coerce :as coerce]
             [muse.core :as muse])
