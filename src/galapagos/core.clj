@@ -6,33 +6,52 @@
             [muse.core :as muse])
   (:refer-clojure :exclude [compile]))
 
-(declare traverse traverse-root traverse-one traverse-many)
+;; ## Core
+;;
+;; Contains the main galapagos entry point and provides an execution
+;; engine based on the [muse library](https://github.com/kachayev/muse).
+;; A graph is formed based on the query and the GraphQL schema, in which
+;; the leaves return muse `DataSource`s, which in turn will wrap core.async
+;; channels. Data will be fetched from the leaves in a concurrent fashion,
+;; with caching to avoid fetching the same data more than once.
 
+;; Something that will return a solution as a muse `DataSource`.
 (defprotocol Solvable
-  (solve [this value])
-  (arity [this])
+  (solve [this value]))
+
+;; Provides information on how be used to collect the data returned by the
+;; node itself and its children into the final result graph.
+(defprotocol ResultAccumulator
   (acc-fn [this]))
 
+;; The `Visited` protocol is helpful for knowing how to traverse a node's
+;; children and when to terminate the traversal. A node that returns
+;; many elements will have an arity of `:many`, a single element an arity
+;; of `:one`. A special case is the root node which isn't directly
+;; solvable.
 (defprotocol Visited
+  (arity [this])
   (empty-node? [this])
   (done? [this]))
 
+;; The root node of the query. This node does not have any fields
+;; of its own, therefore it is not solvable. Only its children are.
 (defrecord SolvableRoot [node fields]
-  Solvable
-  (solve [_ _] (throw (IllegalStateException. "Root node should not be directly solved!")))
-  (arity [_] :root)                                         ; Not really an arity!
+  ResultAccumulator
   (acc-fn [_] #(assoc {} :data %))
 
   Visited
+  (arity [_] :root)
   (empty-node? [_] false)
   (done? [_] false))
 
-
 (defn- resolve-name
+  "Takes any aliases into account when resolving the name of a field."
   [query]
   (or (:alias query) (:name query)))
 
 (defn- coerced-args
+  "Coerces field input arguments using a basic string coercion matcher."
   [node query]
   (let [coercer (coerce/coercer (:args node) coerce/string-coercion-matcher)
         args (or (:args query) {})
@@ -41,6 +60,8 @@
       (throw (IllegalArgumentException. (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
       coerced)))
 
+;; A GraphQL "object" node that resolves to other objects (more nodes)
+;; or fields (leaves).
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
@@ -60,18 +81,19 @@
         muse/LabeledSource
         (resource-id [_] [args (resolve-name query)]))))
 
-  (arity [_] (:arity node))
 
+  ResultAccumulator
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
     #(assoc {} (resolve-name query) %))
 
   Visited
+  (arity [_] (:arity node))
   (empty-node? [_] (empty? fields))
   (done? [_] false))
 
 
-;; A leaf that looks up keys in a parent map or record.
+;; A leaf node that looks up keys in a parent map or record.
 (defrecord SolvableLookupField [fields key-names]
   Solvable
   (solve [_ parent]
@@ -92,17 +114,17 @@
         muse/LabeledSource
         (resource-id [_] value))))
 
-  (arity [_] :one)
-
+  ResultAccumulator
   ;; At leaves, we use the result directly
   (acc-fn [_] #(into {} %))
 
   Visited
+  (arity [_] :one)
   (empty-node? [_] (empty? fields))
   (done? [_] true))
 
 
-;; A leaf node that resolves directly to a value
+;; A leaf node that resolves directly to a value.
 (defrecord SolvableRawField [node query fields]
   Solvable
   (solve [_ value]
@@ -117,26 +139,30 @@
         muse/LabeledSource
         (resource-id [_] [value (resolve-name query)]))))
 
-  (arity [_] :one)
-
+  ResultAccumulator
   (acc-fn [_] #(into {} %))
 
   Visited
+  (arity [_] :one)
   (empty-node? [_] false)
   (done? [_] true))
 
-
 (defn- merge-children
   "Merges SolvableLookupField children to a single SolvableLookupField with multiple
-   fields and key-names. Keeps traversal lean, because we don't have to visit each leaf
-   separately.
+  fields and key-names. Keeps traversal lean, because we don't have to visit each leaf
+  separately.
 
-   Example:
+  Example:
 
-   [#SolvableLookupField{:fields [GraphQLInt], :key-names [{:name :id}]}
-    #SolvableLookupField{:fields [GraphQLString], :key-names [{:name :fullname]}]
+    [#SolvableLookupField{:fields [GraphQLInt],
+                          :key-names [{:name :id}]}
+     #SolvableLookupField{:fields [GraphQLString],
+                          :key-names [{:name :fullname]}]
 
-    -> [#SolvableLookupField{:fields [GraphQLInt GraphQLString], :key-names [{:name :id} {:name :fullname}]}]
+    -> [#SolvableLookupField{:fields [GraphQLInt
+                                      GraphQLString],
+                             :key-names [{:name :id}
+                                         {:name :fullname}]}]
    "
   [fields]
   (let [mergeable? #(instance? SolvableLookupField %)
@@ -149,7 +175,10 @@
          (apply galapagos.core/->SolvableLookupField)
          (conj other-fields))))
 
-(defn get-field-definition
+(defn- get-field-definition
+  "Gets the definition of a field, ie its **type**. The source of this
+   information may be in the node or, if the field is part of an interface,
+   in the map of interface definitions at the root of the schema graph."
   [root node query]
   (if-let [field (or
                    (get-in node [:fields (:name query) :type])
@@ -161,16 +190,19 @@
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
 (defn- inline-fragment?
+  "Checks if a fragment is defined in-line or separately. If it's defined
+  separately, there will be a keyword reference to a fragment name."
   [fragment]
   (not (keyword? fragment)))
 
 (defn- attach-type-metadata
+  "For fragments, it's important to know which types they apply to.
+  This function attaches this information as a piece of metadata.0"
   [on field]
   (with-meta field {:on on}))
 
 (defn- collect-fields
-  "Collects fields defined in fragments and merges then with the selection fields.
-  Fragment fields are tagged with :on metadata to distinguish them from selection-defined fields."
+  "Collects fields defined in fragments and merges then with the selection fields."
   [query fragments]
   (reduce (fn [acc fragment]
             (let [f (if (inline-fragment? fragment) fragment (get-in fragments [fragment]))]
@@ -178,6 +210,7 @@
     (:fields query) (:fragments query)))
 
 (defn- returns-primitive?
+  "Checks if a particular node is actually a leaf that returns a scalar."
   [node]
   (and (:returns node) (util/scalar? (:returns node))))
 
@@ -198,6 +231,8 @@
          :else (->SolvableNode node query (merge-children fields)))))))
 
 
+(declare traverse)
+
 (defmulti traverse-node (fn [graph _ _] (arity graph)))
 
 ;; No solving at the root node
@@ -205,10 +240,10 @@
   [_ field parent]
   (traverse field parent))
 
+;; Solution is either a leaf node (which we'll solve directly,
+;; terminating the recursion) or a single new traversable node.
 (defmethod traverse-node :one
   [graph field parent]
-  ;; Solution is either a leaf node (which we'll solve directly,
-  ;; terminating the recursion) or a single new traversable node.
   (if (done? graph)
     (solve graph parent)
 
@@ -219,10 +254,10 @@
           (traverse field solution)))
       (solve graph parent))))
 
+;; Solution is a collection of traversable nodes.
+;; Use `muse/traverse` to iterate over all of them.
 (defmethod traverse-node :many
   [graph field parent]
-  ;; Solution is a collection of traversable nodes.
-  ;; Use muse/traverse to iterate over all of them.
   (muse/traverse
     (fn [solution]
       (if (or (empty? solution) (empty-node? field))
@@ -237,6 +272,11 @@
 (defmethod merge-siblings :many [_ muses] (apply (partial map merge) muses))
 
 (defn- traverse
+  "Takes the traversable graph produce by `galapagos.core/compile` and
+  traverses it using the muse library. If everything goes well (ie all
+  leaves correctly solve to muse DataSources, siblings are merged
+  correctly and node arity is taken into account), the result will
+  be a normal map with the result, ready to be returned to the caller."
   ([graph] (traverse graph {}))
   ([graph parent]
    (muse/fmap
@@ -252,9 +292,10 @@
   "Non-blocking execution - returns a core.async channel with the result.
   See execute!! for the blocking version.
 
-  (galapagos.core/execute!
-    (galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
-    \"{ post(id: 1) { title } }\"))"
+    (galapagos.core/execute!
+      (galapagos.schema/create-schema
+        galapagos.example.schema/QueryRoot)
+      \"{ post(id: 1) { title } }\"))"
   [{:keys [root]} query-string]
   (let [query (parse query-string)
         graph (compile root query)]
@@ -263,9 +304,10 @@
 (defn execute!!
   "Blocking execution. See execute! for the non-blocking version.
 
-  (galapagos.core/execute!!
-    (galapagos.schema/create-schema galapagos.example.schema/QueryRoot)
-   \"{ post(id: 1) { title } }\"))"
+    (galapagos.core/execute!!
+      (galapagos.schema/create-schema
+        galapagos.example.schema/QueryRoot)
+      \"{ post(id: 1) { title } }\"))"
   [& args]
   (async/<!! (apply execute! args)))
 

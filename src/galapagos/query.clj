@@ -2,7 +2,17 @@
   (:require [instaparse.core :as insta])
   (:import [IllegalArgumentException]))
 
-;; Credits go to Huey Petersen (https://github.com/eyston/hueyql), I adapted this from his parser
+;; ## Query parsing
+;;
+;; This namespace provides GraphQL query parsing facilities.
+;; It uses an Instaparse grammar adapted from Huey Petersen's
+;; HueyQL prototypeä (https://github.com/eyston/hueyql).
+;;
+;; ### Validation
+;;
+;; Not much is done as far as validation goes at the moment.
+;; If a query can't be parsed at all using the defined grammar,
+;; an `IllegalArgumentException` is thrown.
 
 (def parser
   (insta/parser "ROOT = INTRO? SELECTION <whitespace> FRAGMENTS? <whitespace>
@@ -31,15 +41,21 @@
                  whitespace = #'\\s*'"))
 
 (defn- is-field-selection?
+  "Checks if a particular selection is a field, as opposed to a
+  fragment or fragment reference."
   [field]
   (and (coll? field) (contains? field :name)))
 
-(defn parse-literal
+(defn- parse-literal
+  "Some literals need an extra parsing step, such as single-quoted strings."
   [literal]
   (if-let [quotes-stripped (last (re-matches #"^[\"'](.*)[\"']$" literal))]
     quotes-stripped
     literal))
 
+;; Besides the Instaparse grammar, this is the heart of the query
+;; parsing. It turns the tree structure returned by Instaparse to
+;; something that the galapagos execution engine understands.
 (def transform
   (partial insta/transform {:INTRO             (fn [& args] (into {} args))
                             :OP                (fn [op] [:op (keyword op)])
@@ -72,6 +88,7 @@
                                                  (merge (into {} args) {:op :query}))}))
 
 (defn parse [string]
+  "The main parsing entry point."
   (let [tree (parser string)]
     (if (insta/failure? tree)
       (do
