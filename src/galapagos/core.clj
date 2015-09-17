@@ -155,13 +155,13 @@
 
   Example:
 
-    [#SolvableLookupField{:fields [GraphQLInt],
+    [#SolvableLookupField{:fields [{:type GraphQLInt}],
                           :key-names [{:name :id}]}
      #SolvableLookupField{:fields [GraphQLString],
                           :key-names [{:name :fullname]}]
 
-    -> [#SolvableLookupField{:fields [GraphQLInt
-                                      GraphQLString],
+    -> [#SolvableLookupField{:fields [{:type GraphQLInt}
+                                      {:type GraphQLString}],
                              :key-names [{:name :id}
                                          {:name :fullname}]}]
    "
