@@ -4,6 +4,11 @@
             [clojure.core.async :as async])
   (:refer-clojure :exclude [deftype definterface]))
 
+(defn scalar?
+  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
+  [node]
+  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
+
 (defn- add-introspection-info
   "Adds introspection information to individual fields. Assumes that each field
   var has an `:introspection` key in **its** metadata."

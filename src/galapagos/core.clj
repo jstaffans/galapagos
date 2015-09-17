@@ -3,7 +3,8 @@
             [galapagos.util :as util]
             [clojure.core.async :as async]
             [schema.coerce :as coerce]
-            [muse.core :as muse])
+            [muse.core :as muse]
+            [galapagos.schema :as schema])
   (:refer-clojure :exclude [compile]))
 
 ;; ## Core
@@ -215,7 +216,7 @@
   as opposed to a simple map lookup."
   [node]
   (let [ret (:returns (:type node))]
-    (and ret (not (vector? ret)) (util/scalar? node))))
+    (and ret (not (vector? ret)) (schema/scalar? node))))
 
 (defn- as-node
   "In this implementation, a node is always represented by a map with a `:type` key.
@@ -238,7 +239,7 @@
 
        (cond
          (returns-scalar? node) (->SolvableRawField type query [type])
-         (util/scalar? node) (->SolvableLookupField [type] [query])
+         (schema/scalar? node) (->SolvableLookupField [type] [query])
          :else (->SolvableNode type query (merge-children fields)))))))
 
 (declare traverse)
