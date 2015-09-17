@@ -16,7 +16,7 @@
   "Macro for defining the most basic GraphQL type - a scalar value."
   [name kind]
   `(def
-     ~(vary-meta name assoc :introspection {:kind :SCALAR})
+     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :SCALAR})
      ~kind))
 
 ;; ### Built-in scalars
@@ -43,7 +43,7 @@
 (defmacro defenum
   [name & values]
   `(def
-     ~(vary-meta name assoc :introspection {:kind :ENUM})
+     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :ENUM})
      (s/enum ~@values)))
 
 (defmacro definterface
@@ -58,14 +58,14 @@
   (let [interface-names (into [] (map str interfaces))
         fields-with-type-names (fields-with-introspection-metadata (:fields t))]
     `(do
-       (def ~(vary-meta name assoc :introspection {:kind :OBJECT})
+       (def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :OBJECT})
          (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-type-names}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro defunion
   "Define a union of previously defined types."
   [name ts]
-  `(def ~(vary-meta name assoc :introspection {:kind :UNION})
+  `(def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :UNION})
      {:fields     (into {} (map :fields ~ts))
       :interfaces (mapcat :interfaces ~ts)}))
 
@@ -85,8 +85,18 @@
 
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
 
+(deftype FieldDescription []
+  {:fields {:name {:type GraphQLString}}})
+
+(deffield FindFields :- [FieldDescription]
+  {:description "Finds the fields belonging to a type"
+   :args {}
+   :solve (fn [args]
+            (println (get args 'TypeDescription))
+            (async/go [(->FieldDescription {:name "Foobar"})]))})
+
 (deftype TypeDescription []
-  {:fields {:kind        {:type TypeKind}
+  {:fields {:fields      {:type FindFields}
             :name        {:type GraphQLString}
             :description {:type GraphQLString}}})
 
@@ -101,7 +111,9 @@
   [type-map]
   (fn [{:keys [name]}]
     (async/go
-      (let [type-definition (get type-map (keyword name))]
+      (let [type-definition (get type-map #spy/p (keyword name))]
+        (clojure.pprint/pprint (keys type-map))
+        (println type-definition)
         (->TypeDescription
           {:name        (:name type-definition)
            :description (:description type-definition)})))))
