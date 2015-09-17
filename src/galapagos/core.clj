@@ -198,7 +198,7 @@
 
 (defn- attach-type-metadata
   "For fragments, it's important to know which types they apply to.
-  This function attaches this information as a piece of metadata.0"
+  This function attaches this information as a piece of metadata."
   [on field]
   (with-meta field {:on on}))
 

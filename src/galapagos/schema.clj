@@ -4,24 +4,21 @@
             [clojure.core.async :as async])
   (:refer-clojure :exclude [deftype definterface]))
 
-(defn scalar?
-  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
-  [node]
-  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
-
-(defn- add-introspection-info
-  "Adds introspection information to individual fields. Assumes that each field
-  var has an `:introspection` key in **its** metadata."
-  [t]
-  (reduce-kv (fn [acc k v]
-               (assoc acc k (with-meta v {:introspection (-> (:type v) symbol resolve meta :introspection)})))
-    {} (:fields t)))
+;; ## Schema
+;;
+;; Contains functions for defining the GraphQL schema that the application will support.
+;; Basically all macros are syntactic sugar around normal var definitions.
+;; Introspection is a big deal in GraphQL - this is supported by attaching
+;; metadata to the defined vars.
 
 (defmacro defscalar
+  "Macro for defining the most basic GraphQL type - a scalar value."
   [name kind]
   `(def
-     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :SCALAR})
+     ~(vary-meta name assoc :introspection {:kind :SCALAR})
      ~kind))
+
+;; ### Built-in scalars
 
 ;; ID can be an integer or an UUID
 (defscalar GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
@@ -34,48 +31,58 @@
 
 (defscalar GraphQLBoolean s/Bool)
 
+;; ### Enums, interfaces, unions and custom types
+
+(defn- fields-with-introspection-metadata
+  "Adds introspection information to individual fields. As GraphQL types are used
+  for field definitions, we can get the introspection information from the vars."
+  [fields]
+  (reduce-kv (fn [acc k v]
+               (assoc acc k (with-meta v {:introspection (-> (:type v) symbol resolve meta :introspection)})))
+    {} fields))
+
 (defmacro defenum
   [name & values]
   `(def
-     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :ENUM})
+     ~(vary-meta name assoc :introspection {:kind :ENUM})
      (s/enum ~@values)))
 
 (defmacro definterface
+  "Define a GraphQL interface."
   [name t]
-  (let [fields-with-type-names (add-introspection-info t)]
+  (let [fields-with-type-names (fields-with-introspection-metadata (:fields t))]
     `(def ~name (merge ~t {:fields ~fields-with-type-names}))))
-
-(defmacro defunion
-  [name ts]
-  `(def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :UNION})
-     {:fields     (into {} (map :fields ~ts))
-      :interfaces (mapcat :interfaces ~ts)}))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))
-        fields-with-type-names (add-introspection-info t)]
+        fields-with-type-names (fields-with-introspection-metadata (:fields t))]
     `(do
-       (def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :OBJECT})
+       (def ~(vary-meta name assoc :introspection {:kind :OBJECT})
          (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-type-names}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
+(defmacro defunion
+  "Define a union of previously defined types."
+  [name ts]
+  `(def ~(vary-meta name assoc :introspection {:kind :UNION})
+     {:fields     (into {} (map :fields ~ts))
+      :interfaces (mapcat :interfaces ~ts)}))
+
 (defmacro deffield
-  "Defines a field that fetches something."
+  "Defines a field that fetches something. The type will depend on what the field returns."
   [name s ret f]
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
       `(def ~(vary-meta name assoc
-               :introspection
-               {:name (keyword name)
-                :kind (-> type symbol resolve meta :introspection :kind)})
+               :introspection {:kind (-> type symbol resolve meta :introspection :kind)})
          (merge
            (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
            {:returns ~ret})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
-;; Introspection types
+;; ### Introspection types
 
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
 
@@ -114,4 +121,12 @@
   [root]
   (let [type-map (build-type-map root)]
     {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
+
+
+;; ### Utilities
+
+(defn scalar?
+  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
+  [node]
+  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
 
