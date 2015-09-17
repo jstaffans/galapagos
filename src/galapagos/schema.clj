@@ -1,7 +1,8 @@
 (ns galapagos.schema
   (:require [galapagos.introspection :as introspection]
             [schema.core :as s]
-            [clojure.core.async :as async])
+            [clojure.core.async :as async]
+            [medley.core :refer [map-vals]])
   (:refer-clojure :exclude [deftype definterface]))
 
 ;; ## Schema
@@ -37,9 +38,7 @@
   "Adds introspection information to individual fields. As GraphQL types are used
   for field definitions, we can get the introspection information from the vars."
   [fields]
-  (reduce-kv (fn [acc k v]
-               (assoc acc k (with-meta v {:introspection (-> (:type v) symbol resolve meta :introspection)})))
-    {} fields))
+  (map-vals #(with-meta % {:introspection (-> (:type %) symbol resolve meta :introspection)}) fields))
 
 (defmacro defenum
   [name & values]
