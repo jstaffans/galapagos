@@ -9,7 +9,7 @@
 ;; TODO: accept Prismatic Schema schemas as types directly
 
 (schema/definterface BlogUser
-  {:fields {:id     {:type schema/GraphQLInt}
+  {:fields {:id     {:type schema/GraphQLString}
             :name   {:type schema/GraphQLString}
             :handle {:type schema/GraphQLString}}})
 
@@ -94,7 +94,7 @@
 
 (schema/defroot QueryRoot
   {:description "The query root for this schema"
-   :fields      {:post     {:type FindPost}
+   :fields      {:post     (with-meta {:type FindPost} {:introspection {:kind :OBJECT :name :FindPost}})
                  :posts    {:type FindPosts}
                  :bloggers {:type FindBloggers}
                  :authors  {:type FindAuthors}}

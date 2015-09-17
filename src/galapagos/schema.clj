@@ -2,68 +2,58 @@
   (:require [galapagos.introspection :as introspection]
             [schema.core :as s]
             [clojure.core.async :as async])
-  (:import (schema.core Predicate EnumSchema))
   (:refer-clojure :exclude [deftype definterface]))
 
-(def types (atom {}))
-
-;; ID can be an integer or an UUID
-(def GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
-
-(def GraphQLInt s/Int)
-
-(def GraphQLFloat s/Num)
-
-(def GraphQLString s/Str)
-
-(def GraphQLBoolean s/Bool)
-
-(def builtin-types
-  {
-   :ID      {:kind :SCALAR}
-   :Int     {:kind :SCALAR}
-   :Float   {:kind :SCALAR}
-   :String  {:kind :SCALAR}
-   :Boolean {:kind :SCALAR}})
-
-;; TODO: pretty crude way of determining if something is one of the above
-(defn primitive?
+(defn- add-introspection-info
+  "Adds introspection information to individual fields. Assumes that each field
+  var has an `:introspection` key in **its** metadata."
   [t]
-  (or
-    (= Class (type t))
-    (= Predicate (type t))
-    (= EnumSchema (type t))))
-
-(defmacro defenum
-  [name & values]
-  `(def ~name
-     (s/enum ~@values)))
+  (reduce-kv (fn [acc k v]
+               (assoc acc k (with-meta v {:introspection (-> (:type v) symbol resolve meta :introspection)})))
+    {} (:fields t)))
 
 (defmacro defscalar
   [name kind]
-  (let [k (keyword name)]
-    `(def ~name ~kind)))
+  `(def
+     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :SCALAR})
+     ~kind))
+
+;; ID can be an integer or an UUID
+(defscalar GraphQLID (s/if (partial re-matches #"^\d+$") s/Int s/Uuid))
+
+(defscalar GraphQLInt s/Int)
+
+(defscalar GraphQLFloat s/Num)
+
+(defscalar GraphQLString s/Str)
+
+(defscalar GraphQLBoolean s/Bool)
+
+(defmacro defenum
+  [name & values]
+  `(def
+     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :ENUM})
+     (s/enum ~@values)))
 
 (defmacro definterface
   [name t]
-  `(def ~name ~t))
+  (let [fields-with-type-names (add-introspection-info t)]
+    `(def ~name (merge ~t {:fields ~fields-with-type-names}))))
 
 (defmacro defunion
   [name ts]
-  `(def ~name {:fields     (into {} (map :fields ~ts))
-               :interfaces (mapcat :interfaces ~ts)}))
+  `(def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :UNION})
+     {:fields     (into {} (map :fields ~ts))
+      :interfaces (mapcat :interfaces ~ts)}))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
-  (let [interface-names (into [] (map str interfaces))]
+  (let [interface-names (into [] (map str interfaces))
+        fields-with-type-names (add-introspection-info t)]
     `(do
-       (def ~name (with-meta
-                    (merge ~t {:interfaces (map keyword ~interface-names)})
-                    {:introspection
-                     {:is-type? true
-                      :name ~(keyword name)
-                      :kind :OBJECT}}))
+       (def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :OBJECT})
+         (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-type-names}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro deffield
@@ -71,7 +61,10 @@
   [name s ret f]
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
-      `(def ~name
+      `(def ~(vary-meta name assoc
+               :introspection
+               {:name (keyword name)
+                :kind (-> type symbol resolve meta :introspection :kind)})
          (merge
            (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
            {:returns ~ret})))
@@ -89,7 +82,7 @@
 
 (deffield FindType :- TypeDescription
   {:description "Finds a type by name"
-   :args {:name GraphQLString}
+   :args        {:name GraphQLString}
    ; solve added once we have the root
    })
 
@@ -116,5 +109,4 @@
   [root]
   (let [type-map (build-type-map root)]
     {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
-
 

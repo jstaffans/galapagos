@@ -1,13 +1,9 @@
-(ns galapagos.util
-  (:import (schema.core EnumSchema Predicate)))
+(ns galapagos.util)
 
-;; TODO: pretty crude way of determining if something is a scalar
 (defn scalar?
-  [t]
-  (or
-    (= Class (type t))
-    (= Predicate (type t))
-    (= EnumSchema (type t))))
+  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
+  [node]
+  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
 
 (defn apply-1
   "Applies f to val, or shallowly to each element of val if val implements Sequential."

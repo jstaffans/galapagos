@@ -176,16 +176,16 @@
          (conj other-fields))))
 
 (defn- get-field-definition
-  "Gets the definition of a field, ie its **type**. The source of this
-   information may be in the node or, if the field is part of an interface,
-   in the map of interface definitions at the root of the schema graph."
+  "Gets the definition of a field. The source of this information may be in the node or,
+  if the field is part of an interface, in the map of interface definitions at the root
+  of the schema graph."
   [root node query]
   (if-let [field (or
-                   (get-in node [:fields (:name query) :type])
+                   (get-in (:type node) [:fields (:name query)])
                    (first (keep
                             (fn [interface]
-                              (get-in root [:interfaces interface :fields (:name query) :type]))
-                            (-> node :type-definition :interfaces))))]
+                              (get-in root [:interfaces interface :fields (:name query)]))
+                            (-> (:type node) :type-definition :interfaces))))]
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
@@ -209,27 +209,37 @@
               (into acc (mapv (partial attach-type-metadata (:on f)) (:fields f)))))
     (:fields query) (:fragments query)))
 
-(defn- returns-primitive?
-  "Checks if a particular node is actually a leaf that returns a scalar."
+(defn- returns-scalar?
+  "Checks if a particular node is actually a leaf that returns a scalar.
+  This is the case for leaves that represent a calculation of some kind
+  as opposed to a simple map lookup."
   [node]
-  (and (:returns node) (util/scalar? (:returns node))))
+  (let [ret (:returns (:type node))]
+    (and ret (not (vector? ret)) (util/scalar? node))))
+
+(defn- as-node
+  "In this implementation, a node is always represented by a map with a `:type` key.
+  We don't define for example the root node this way, however, so we need to coerce
+  it into a form that the compiler understands."
+  [field]
+  (assoc {} :type field))
 
 (defn- compile
   "Compiles query into a traversable graph."
-  ([root query] (compile root root (:fragments query) (dissoc query :fragments)))
+  ([root query] (compile root (as-node root) (:fragments query) (dissoc query :fragments)))
   ([root node fragments query]
    (let [fields (mapv (fn [query]
                         (let [field (get-field-definition root node query)]
                           (compile root field fragments query)))
-                  (collect-fields query fragments))]
-     (if (= root node)
+                  (collect-fields query fragments))
+         type (:type node)]
+     (if (= root type)
        (->SolvableRoot node fields)
 
        (cond
-         (util/scalar? node) (->SolvableLookupField [node] [query])
-         (returns-primitive? node) (->SolvableRawField node query [node])
-         :else (->SolvableNode node query (merge-children fields)))))))
-
+         (returns-scalar? node) (->SolvableRawField type query [type])
+         (util/scalar? node) (->SolvableLookupField [type] [query])
+         :else (->SolvableNode type query (merge-children fields)))))))
 
 (declare traverse)
 
