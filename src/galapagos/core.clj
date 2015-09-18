@@ -58,7 +58,8 @@
         args (or (:args query) {})
         coerced (coercer args)]
     (if-let [error-val (schema.utils/error-val coerced)]
-      (throw (IllegalArgumentException. (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
+      (throw (IllegalArgumentException.
+               (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
       coerced)))
 
 ;; A GraphQL "object" node that resolves to other objects (more nodes)
