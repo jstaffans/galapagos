@@ -40,10 +40,15 @@
   [fields]
   (map-vals #(with-meta % {:introspection (-> (:type %) symbol resolve meta :introspection)}) fields))
 
+(defn- extract-introspection-metadata
+  "Extracts the bits of a type definition that are interesting for introspection"
+  [name m]
+  (assoc {} :name (keyword name) :description (:description m)))
+
 (defmacro defenum
   [name & values]
   `(def
-     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :ENUM})
+     ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name values) {:kind :ENUM}))
      (s/enum ~@values)))
 
 (defmacro definterface
@@ -53,7 +58,7 @@
     `(def ~name
        (with-meta
          (merge ~t {:fields ~fields-with-type-names})
-         {:introspection {:name ~(keyword name) :kind :INTERFACE}}))))
+         {:introspection ~(merge (extract-introspection-metadata name t) {:kind :INTERFACE})}))))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
@@ -61,14 +66,14 @@
   (let [interface-names (into [] (map str interfaces))
         fields-with-metadata (fields-with-introspection-metadata (:fields t))]
     `(do
-       (def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :OBJECT})
+       (def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :OBJECT}))
          (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-metadata}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro defunion
   "Define a union of previously defined types."
   [name ts]
-  `(def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :UNION})
+  `(def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name {}) {:kind :UNION}))
      {:fields     (into {} (map :fields ~ts))
       :interfaces (mapcat :interfaces ~ts)}))
 
@@ -78,7 +83,7 @@
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
       `(def ~(vary-meta name assoc
-               :introspection (-> type symbol resolve meta :introspection ))
+               :introspection (-> type symbol resolve meta :introspection))
          (merge
            (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
            {:returns ~ret})))
