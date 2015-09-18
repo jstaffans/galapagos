@@ -1,27 +1,48 @@
 (ns galapagos.introspection)
 
-(defn- register-type
-  [types & {:keys [metadata]}]
-  (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
-    (swap! types #(assoc % type-name (assoc {} :description desc :__name type-name :__kind kind)))))
+;; ## Introspection
+;;
+;; Talk about being meta! GraphQL can answer queries about itself, ie about its schema.
+;; This is defined precisely in https://facebook.github.io/graphql/#sec-Schema-Introspection .
+;; This namespace contains functions that build an overview map of the types used in the schema.
 
-(defn walk
+
+(defn- register-type!
+  "Stateful registration of a type. Besides normal information such as the description
+  and the field map, we also register introspection metadata such as the *kind* of type."
+  [types & {:keys [type metadata]}]
+  (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
+    (swap! types #(assoc % type-name (assoc type :__name type-name :description desc :__kind kind)))))
+
+
+(defn- walk-fields
+  "Recursively walks the fields of a type and registers any types found. It may happen
+  that a type is registered multiple times, the previous registration then being overwritten.
+  This only happens at startup though, not when an introspection query is performed,
+  so the performance hit is negligible."
+  [node types]
+  (doseq [[_ field] (:fields node)]
+    (register-type! types
+      :type (if (map? (:type field)) (:type field) {})
+      :metadata (:introspection (or (meta field) (meta (:type field))))))
+  (doseq [[_ {:keys [type]}] (:fields node)]
+    (walk-fields type types)))
+
+
+(defn- walk
+  "Registers interface types and then starts recursion of the fields of the root query type."
   [root types]
   ;; Register interfaces using the top-level map
   (doseq [interface (vals (:interfaces root))]
-    (register-type types
+    (register-type! types
       :metadata (:introspection (meta interface))))
-
-  ;; Dumbly walk through the schema and register all types. Doing it this way
-  ;; means that any type that isn't used anywhere in the schema, but still
-  ;; defined with `galapagos.schema/deftype` or another macro,; will not show
-  ;; up during introspection.
-  (clojure.walk/postwalk
-    #(if-let [fields (:fields %)]
-      (doseq [f (vals fields)]
-        (if-let [metadata (or (meta f) (meta (:type f)))]
-          (register-type types
-            :metadata (:introspection metadata))
-          %))
-      %) root)
+  (walk-fields root types)
   types)
+
+
+(defn type-map
+  "Returns a map of all types used in the given schema."
+  [root]
+  @(walk root (atom {})))
+
+

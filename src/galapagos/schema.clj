@@ -89,18 +89,33 @@
            {:returns ~ret})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
+(defmacro defroot
+  [name r]
+  (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
+    `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
+
 ;; ### Introspection types
 
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
 
 (deftype FieldDescription []
-  {:fields {:name {:type GraphQLString}}})
+  {:fields {:name {:type GraphQLString}
+            :kind {:type TypeKind}}})
 
 (deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
-   :args {}
-   :solve (fn [args]
-            (async/go [(->FieldDescription {:name "Foobar"})]))})
+   :args        {}
+   :solve       (fn [args]
+                  (let [type-desc (get args 'TypeDescription)
+                        type-definition (:type-definition (meta type-desc))]
+                    (async/go
+                      (mapv
+                        (fn [[name f]]
+                          (let [metadata (:introspection (meta f))]
+                            (->FieldDescription
+                              {:name name
+                               :kind (:kind metadata)})))
+                        (:fields type-definition)))))})
 
 (deftype TypeDescription []
   {:fields {:fields      {:type FindFields}
@@ -109,39 +124,33 @@
             :description {:type GraphQLString}}})
 
 
+;; Skeleton field for finding a type. We can't solve anything before the type map
+;; has been created, which is done in the `create-schema` function below. The `solve`
+;; function is therefore added once the type map is available.
 (deffield FindType :- TypeDescription
   {:description "Finds a type by name"
-   :args        {:name GraphQLString}
-   ; solve added once we have the root
-   })
+   :args        {:name GraphQLString}})
 
 (defn- solve-type
+  "Solves to a type defined in a type map. See the `galapagos.introspection` namespace
+  for the functions that handle building the type map."
   [type-map]
   (fn [{:keys [name]}]
     (async/go
       (let [type-definition (get type-map (keyword name))]
-        (clojure.pprint/pprint (keys type-map))
-        (println type-definition)
-        (->TypeDescription
-          {:name        (:__name type-definition)
-           :kind        (:__kind type-definition)
-           :description (:description type-definition)})))))
+        (with-meta
+          (->TypeDescription
+            {:name        (:__name type-definition)
+             :kind        (:__kind type-definition)
+             :description (:description type-definition)})
+          {:type-definition type-definition})))))
 
-(defmacro defroot
-  [name r]
-  (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
-    `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
-
-(defn- build-type-map
-  [root]
-  (let [types (introspection/walk root (atom {}))]
-    (reduce-kv (fn [acc name type] (assoc acc name type)) {} @types)))
-
-;; TODO: can perform any pre-processing here
 (defn create-schema
+  "Handles any pre-processing of the schema, such as building a map of types for introspection."
   [root]
-  (let [type-map (build-type-map root)]
+  (let [type-map (introspection/type-map root)]
     {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
+
 
 ;; ### Utilities
 
