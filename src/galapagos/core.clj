@@ -283,11 +283,10 @@
 (defmethod merge-siblings :many [_ muses] (apply (partial map merge) muses))
 
 (defn- traverse
-  "Takes the traversable graph produce by `galapagos.core/compile` and
-  traverses it using the muse library. If everything goes well (ie all
-  leaves correctly solve to muse DataSources, siblings are merged
-  correctly and node arity is taken into account), the result will
-  be a normal map with the result, ready to be returned to the caller."
+  "Takes the graph produce by `galapagos.core/compile` and traverses it using the muse library.
+  If everything goes well (ie all leaves correctly solve to muse DataSources, siblings are merged
+  correctly and node arity is taken into account), the result will be a normal map with the result,
+  ready to be returned to the caller."
   ([graph] (traverse graph {}))
   ([graph parent]
    (muse/fmap
