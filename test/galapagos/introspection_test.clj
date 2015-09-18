@@ -14,4 +14,8 @@
       :Post             :⊃ {:__kind :OBJECT}
       :Author           :⊃ {:__kind :OBJECT}
       :PublishingDate   :⊃ {:__kind :SCALAR}
-      :PreferredEditor  :⊃ {:__kind :ENUM})))
+      :PreferredEditor  :⊃ {:__kind :ENUM}
+
+      ;; Builtin types
+      :String           :⊃ {:__kind :SCALAR}
+      :Int              :⊃ {:__kind :SCALAR})))

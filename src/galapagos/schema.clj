@@ -15,9 +15,10 @@
 (defmacro defscalar
   "Macro for defining the most basic GraphQL type - a scalar value."
   [name kind]
-  `(def
-     ~(vary-meta name assoc :introspection {:name (keyword name) :kind :SCALAR})
-     ~kind))
+  (let [introspection-name (keyword (clojure.string/replace name "GraphQL" ""))]
+    `(def
+       ~(vary-meta name assoc :introspection {:name introspection-name :kind :SCALAR})
+       ~kind)))
 
 ;; ### Built-in scalars
 
