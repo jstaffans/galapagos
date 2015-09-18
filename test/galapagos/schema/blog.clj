@@ -94,12 +94,11 @@
 
 (schema/defroot QueryRoot
   {:description "The query root for this schema"
-   :fields      {:post     (with-meta {:type FindPost} {:introspection {:kind :OBJECT :name :FindPost}})
+   :fields      {:post     {:type FindPost}
                  :posts    {:type FindPosts}
                  :bloggers {:type FindBloggers}
                  :authors  {:type FindAuthors}}
 
-   ;; TODO: add these as pre-processing step. Are unions needed?
-   :interfaces  {:BlogUser BlogUser}
-   :unions      {:Blogger Blogger}})
+   ;; TODO: add interface map as pre-processing step on schema creation.
+   :interfaces  {:BlogUser BlogUser}})
 

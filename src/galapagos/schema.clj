@@ -50,16 +50,19 @@
   "Define a GraphQL interface."
   [name t]
   (let [fields-with-type-names (fields-with-introspection-metadata (:fields t))]
-    `(def ~name (merge ~t {:fields ~fields-with-type-names}))))
+    `(def ~name
+       (with-meta
+         (merge ~t {:fields ~fields-with-type-names})
+         {:introspection {:name ~(keyword name) :kind :INTERFACE}}))))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))
-        fields-with-type-names (fields-with-introspection-metadata (:fields t))]
+        fields-with-metadata (fields-with-introspection-metadata (:fields t))]
     `(do
        (def ~(vary-meta name assoc :introspection {:name (keyword name) :kind :OBJECT})
-         (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-type-names}))
+         (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-metadata}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro defunion
@@ -75,7 +78,7 @@
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
       `(def ~(vary-meta name assoc
-               :introspection {:kind (-> type symbol resolve meta :introspection :kind)})
+               :introspection (-> type symbol resolve meta :introspection ))
          (merge
            (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
            {:returns ~ret})))
@@ -92,12 +95,12 @@
   {:description "Finds the fields belonging to a type"
    :args {}
    :solve (fn [args]
-            (println (get args 'TypeDescription))
             (async/go [(->FieldDescription {:name "Foobar"})]))})
 
 (deftype TypeDescription []
   {:fields {:fields      {:type FindFields}
             :name        {:type GraphQLString}
+            :kind        {:type GraphQLString}
             :description {:type GraphQLString}}})
 
 
@@ -111,16 +114,18 @@
   [type-map]
   (fn [{:keys [name]}]
     (async/go
-      (let [type-definition (get type-map #spy/p (keyword name))]
+      (let [type-definition (get type-map (keyword name))]
         (clojure.pprint/pprint (keys type-map))
         (println type-definition)
         (->TypeDescription
-          {:name        (:name type-definition)
+          {:name        (:__name type-definition)
+           :kind        (:__kind type-definition)
            :description (:description type-definition)})))))
 
 (defmacro defroot
   [name r]
-  `(def ~name ~r))
+  (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
+    `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
 
 (defn- build-type-map
   [root]
@@ -132,7 +137,6 @@
   [root]
   (let [type-map (build-type-map root)]
     {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
-
 
 ;; ### Utilities
 
