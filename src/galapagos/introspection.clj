@@ -2,11 +2,8 @@
 
 (defn- register-type
   [types & {:keys [metadata]}]
-  (let [name (:name metadata)
-        desc (:description metadata)
-        kind (:kind metadata)]
-    (swap! types #(assoc % name (assoc {} :description desc :__name name :__kind kind)))))
-
+  (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
+    (swap! types #(assoc % type-name (assoc {} :description desc :__name type-name :__kind kind)))))
 
 (defn walk
   [root types]
@@ -23,10 +20,8 @@
     #(if-let [fields (:fields %)]
       (doseq [f (vals fields)]
         (if-let [metadata (or (meta f) (meta (:type f)))]
-          (do
-            (when (= :Post (-> metadata :introspection :name)) (println %))
-            (register-type types
-              :metadata (:introspection metadata)))
+          (register-type types
+            :metadata (:introspection metadata))
           %))
       %) root)
   types)
