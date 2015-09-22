@@ -184,6 +184,7 @@
   [root node query]
   (if-let [field (or
                    (get-in (:type node) [:fields (:name query)])
+                   (get-in root [:fields (:name query)])
                    (first (keep
                             (fn [interface]
                               (get-in root [:interfaces interface :fields (:name query)]))
