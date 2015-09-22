@@ -25,8 +25,10 @@
 
 (schema/deftype Author [BlogUser]
   {:fields {:preferredEditor {:type PreferredEditor}
-            :profilePicture  {:type FindProfilePicture}
-            :averageRating   {:type schema/GraphQLFloat}}})
+            :averageRating   {:type schema/GraphQLFloat}
+            ;; Is not a quoted reference (like FindAuthor below) because it returns a scalar.
+            ;; TODO: the distinction should be made redundant.
+            :profilePicture  {:type FindProfilePicture}}})
 
 
 (schema/deffield FindAuthor :- Author
@@ -58,10 +60,11 @@
 
 (schema/deftype Post []
   {:description "A blog post"
-   :fields      {:id    {:type schema/GraphQLInt :description "The ID"}
-                 :title {:type schema/GraphQLString :description "The title"}
-                 :date  {:type PublishingDate :description "The publishing date"}
-                 }})
+   :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
+                 :title  {:type schema/GraphQLString :description "The title"}
+                 :date   {:type PublishingDate :description "The publishing date"}
+                 ;; TODO: don't require fully qualified name here
+                 :author 'galapagos.schema.blog/FindAuthor}})
 
 (schema/deffield FindBloggers :- [Blogger]
   {:description "Finds bloggers by handles"
@@ -98,19 +101,7 @@
    :fields      {:post     {:type FindPost}
                  :posts    {:type FindPosts}
                  :bloggers {:type FindBloggers}
-                 :authors  {:type FindAuthors}
-
-                 ;; TODO: in order to support recursive invocations of field lookups,
-                 ;; all fields can be defined at the root and be looked up from there.
-                 ;; This doesn't however mean that these fields are "root query fields",
-                 ;; so they need to be marked differently. Maybe reference them from
-                 ;; the type where they are used? Could also move them to e.g. an
-                 ;; ":others" entry here in the root, to indicate that they are not
-                 ;; real root query fields.
-                 ;;
-                 ;; This is an issue especially for introspection, which relies heavily
-                 ;; on recursive lookups.
-                 :author   {:type FindAuthor} }
+                 :authors  {:type FindAuthors}}
 
    ;; TODO: add interface map as pre-processing step on schema creation.
    :interfaces  {:BlogUser BlogUser}})

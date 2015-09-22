@@ -27,10 +27,9 @@
   (testing "Nested queries"
     (given
       (core/execute!! blog-schema
-        "{ __type(name: Post) { fields { name, type { name } } } }")
-      :data) := {:__type {:fields
-                          [{:name :id, :type {:name :Int, :kind :SCALAR}}
-                           {:name :title, :type {:name :String, :kind :SCALAR}}
-                           {:name :date, :type {:name :PublishingDate, :kind :SCALAR}}
-                           ;; TODO: author field is missing! It's an :OBJECT ..
-                           ]}}))
+        "{ __type(name: Post) { fields { name, type { name, kind } } } }")
+      :data := {:__type {:fields
+                         [{:name :id, :type {:name :Int, :kind :SCALAR}}
+                          {:name :title, :type {:name :String, :kind :SCALAR}}
+                          {:name :date, :type {:name :PublishingDate, :kind :SCALAR}}
+                          {:name :author, :type {:name :Author, :kind :OBJECT}}]}})))

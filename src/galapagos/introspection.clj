@@ -22,9 +22,12 @@
   so the performance hit is negligible."
   [node types]
   (doseq [[_ field] (:fields node)]
-    (register-type! types
-      :type (if (map? (:type field)) (:type field) {})
-      :metadata (:introspection (or (meta field) (meta (:type field))))))
+    (let [type (cond
+                 (map? (:type field)) (:type field)
+                 :else {})]
+      (register-type! types
+        :type type
+        :metadata (:introspection (or (meta field) (meta type))))))
   (doseq [[_ {:keys [type]}] (:fields node)]
     (walk-fields type types)))
 

@@ -39,7 +39,11 @@
   "Adds introspection information to individual fields. As GraphQL types are used
   for field definitions, we can get the introspection information from the vars."
   [fields]
-  (map-vals #(with-meta % {:introspection (-> (:type %) symbol resolve meta :introspection)}) fields))
+  (map-vals (fn [field]
+              (if (map? field)
+                (with-meta field {:introspection (-> (:type field) symbol resolve meta :introspection)})
+                field))
+    fields))
 
 (defn- extract-introspection-metadata
   "Extracts the bits of a type definition that are interesting for introspection"
@@ -123,7 +127,7 @@
                     (async/go
                       (mapv
                         (fn [[name f]]
-                          (let [metadata (:introspection (meta f))]
+                          (let [metadata (:introspection (or (meta f) (meta (find-var f))))]
                             (with-meta
                               (->FieldDescription {:name name})
                               {:introspection metadata})))

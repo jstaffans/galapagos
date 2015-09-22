@@ -177,14 +177,42 @@
          (apply galapagos.core/->SolvableLookupField)
          (conj other-fields))))
 
+(defmulti field-definition-in-node
+  "Determines the manner in which a field type is defined in a node. It may be a reference
+  to a field var, or be defined directly in the node. If neither, it may be part of an interface,
+  in which case it is not defined in the node itself."
+  (fn [node field]
+    (if-let [definition (get-in (:type node) [:fields field])]
+      (if (map? definition)
+        :direct
+        :reference-to-field-var)
+      :not-defined-in-node)))
+
+(defmethod field-definition-in-node :direct
+  [node field]
+  (get-in (:type node) [:fields field]))
+
+(defmethod field-definition-in-node :reference-to-field-var
+  [node field]
+  (assoc {} :type (-> (get-in (:type node) [:fields field]) symbol find-var deref)))
+
+(defmethod field-definition-in-node :not-defined-in-node
+  [_ _] nil)
+
 (defn- get-field-definition
   "Gets the definition of a field. The source of this information may be in the node or,
   if the field is part of an interface, in the map of interface definitions at the root
   of the schema graph."
   [root node query]
   (if-let [field (or
-                   (get-in (:type node) [:fields (:name query)])
+                   (field-definition-in-node node (:name query))
+
+                   ;; This is mainly used by introspection types, which are added
+                   ;; to the root during a pre-processing step. Make sure we find
+                   ;; those as well by looking in the root of the query schema.
                    (get-in root [:fields (:name query)])
+
+                   ;; Check interfaces for field definition.
                    (first (keep
                             (fn [interface]
                               (get-in root [:interfaces interface :fields (:name query)]))
