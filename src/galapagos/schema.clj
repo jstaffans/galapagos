@@ -124,17 +124,31 @@
                       (mapv
                         (fn [[name f]]
                           (let [metadata (:introspection (meta f))]
-                            (->FieldDescription {:name name})))
+                            (with-meta
+                              (->FieldDescription {:name name})
+                              {:introspection metadata})))
                         (:fields type-definition)))))})
 
 (deffield FindTypeOfField :- TypeDescription
   {:description "Finds the type of a field"
-   :args {}
-   :solve (fn [_]
-            (async/go
-              (->TypeDescription
-                {:name "TypeOfField"
-                 :kind :SCALAR})))})
+   :args        {}
+   :solve       (fn [args]
+                  (let [field-desc (get args 'FieldDescription)]
+                    (println (:introspection (meta field-desc)))
+                    (async/go
+                      (->TypeDescription
+                        {:name "TypeOfField"
+                         :kind :SCALAR}))))})
+
+(defn- build-type-description
+  "Builds a TypeDescription from information gathered from type map."
+  [type-definition]
+  (with-meta
+    (->TypeDescription
+      {:name        (:__name type-definition)
+       :kind        (:__kind type-definition)
+       :description (:description type-definition)})
+    {:type-definition type-definition}))
 
 (defn- solve-type-by-name
   "Solves to a type defined in a type map. See the `galapagos.introspection` namespace
@@ -142,15 +156,17 @@
   [type-map]
   (fn [{:keys [name]}]
     (let [type-definition (get type-map (keyword name))]
-      (async/go
-        (with-meta
-          (->TypeDescription
-            {:name        (:__name type-definition)
-             :kind        (:__kind type-definition)
-             :description (:description type-definition)})
-          {:type-definition type-definition
-           :type-map        type-map})))))
+      (async/go (build-type-description type-definition)))))
 
+
+(defn- solve-type-by-field
+  "Determines the type of a field. Solves to a type defined in a type map.
+  See the `galapagos.introspection` namespace for the functions that handle building the type map."
+  [type-map]
+  (fn [args]
+    (let [field-desc (get args 'FieldDescription)
+          type-definition (get type-map (-> field-desc meta :introspection :name))]
+      (async/go (build-type-description type-definition)))))
 
 (defn create-schema
   "Handles any pre-processing of the schema, such as building a map of types for introspection."
@@ -160,7 +176,7 @@
      (-> root
        (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
        (assoc-in [:fields :fields :type] FindFields)
-       (assoc-in [:fields :type :type] FindTypeOfField))}))
+       (assoc-in [:fields :type :type] (assoc FindTypeOfField :solve (solve-type-by-field type-map))))}))
 
 
 ;; ### Utilities
