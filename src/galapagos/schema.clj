@@ -99,9 +99,20 @@
 
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
 
+(deftype TypeDescription []
+  {:fields {:name        {:type GraphQLString}
+            :kind        {:type TypeKind}
+            :description {:type GraphQLString}}})
+
 (deftype FieldDescription []
-  {:fields {:name {:type GraphQLString}
-            :kind {:type TypeKind}}})
+  {:fields {:name {:type GraphQLString}}})
+
+;; Skeleton field for finding a type. We can't solve anything before the type map
+;; has been created, which is done in the `create-schema` function below. The `solve`
+;; function is therefore added once the type map is available.
+(deffield FindType :- TypeDescription
+  {:description "Finds a type by name"
+   :args        {:name GraphQLString}})
 
 (deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
@@ -113,44 +124,43 @@
                       (mapv
                         (fn [[name f]]
                           (let [metadata (:introspection (meta f))]
-                            (->FieldDescription
-                              {:name name
-                               :kind (:kind metadata)})))
+                            (->FieldDescription {:name name})))
                         (:fields type-definition)))))})
 
-(deftype TypeDescription []
-  {:fields {:fields      {:type FindFields}
-            :name        {:type GraphQLString}
-            :kind        {:type GraphQLString}
-            :description {:type GraphQLString}}})
+(deffield FindTypeOfField :- TypeDescription
+  {:description "Finds the type of a field"
+   :args {}
+   :solve (fn [_]
+            (async/go
+              (->TypeDescription
+                {:name "TypeOfField"
+                 :kind :SCALAR})))})
 
-
-;; Skeleton field for finding a type. We can't solve anything before the type map
-;; has been created, which is done in the `create-schema` function below. The `solve`
-;; function is therefore added once the type map is available.
-(deffield FindType :- TypeDescription
-  {:description "Finds a type by name"
-   :args        {:name GraphQLString}})
-
-(defn- solve-type
+(defn- solve-type-by-name
   "Solves to a type defined in a type map. See the `galapagos.introspection` namespace
   for the functions that handle building the type map."
   [type-map]
   (fn [{:keys [name]}]
-    (async/go
-      (let [type-definition (get type-map (keyword name))]
+    (let [type-definition (get type-map (keyword name))]
+      (async/go
         (with-meta
           (->TypeDescription
             {:name        (:__name type-definition)
              :kind        (:__kind type-definition)
              :description (:description type-definition)})
-          {:type-definition type-definition})))))
+          {:type-definition type-definition
+           :type-map        type-map})))))
+
 
 (defn create-schema
   "Handles any pre-processing of the schema, such as building a map of types for introspection."
   [root]
   (let [type-map (introspection/type-map root)]
-    {:root (assoc-in root [:fields :__type :type] (assoc FindType :solve (solve-type type-map)))}))
+    {:root
+     (-> root
+       (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
+       (assoc-in [:fields :fields :type] FindFields)
+       (assoc-in [:fields :type :type] FindTypeOfField))}))
 
 
 ;; ### Utilities
