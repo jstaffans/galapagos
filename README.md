@@ -10,6 +10,8 @@ The goal of this library is to expose the data of your Clojure application in a 
 GraphQL clients to interact with it. Special care is taken to make data access as efficient as possible - 
 streamlined, concurrent data fetching is provided by the [muse](https://github.com/kachayev/muse) library.
 
+See [links](https://github.com/jstaffans/galapagos/blob/master/links.md) for more information on GraphQL and the ideas behind it.
+
 ## Status
 
 Galapagos is still very much pre-alpha software and nearly everything is subject to change.
