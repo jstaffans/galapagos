@@ -32,4 +32,12 @@
                          [{:name :id, :type {:name :Int, :kind :SCALAR}}
                           {:name :title, :type {:name :String, :kind :SCALAR}}
                           {:name :date, :type {:name :PublishingDate, :kind :SCALAR}}
-                          {:name :author, :type {:name :Author, :kind :OBJECT}}]}})))
+                          {:name :author, :type {:name :Author, :kind :OBJECT}}]}}))
+
+  (testing "Input values"
+    (given
+      (core/execute!! blog-schema
+        "{ __type(name: Author) { fields { args { name, type { name } } } } }")
+      :data := {:__type {:fields [{:args []} {:args []} {:args [{:type {:name :String}, :name :size}]}]}}))
+
+  )
