@@ -7,6 +7,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [instaparse "1.4.1"]
                  [prismatic/schema "1.0.0"]
+                 [com.taoensso/timbre "4.1.1"]
                  [medley "0.7.0"]
                  [muse "0.4.0"]
                  [cats "0.4.0"]

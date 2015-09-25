@@ -2,7 +2,8 @@
   (:require [galapagos.introspection :as introspection]
             [schema.core :as s]
             [clojure.core.async :as async]
-            [medley.core :refer [map-vals]])
+            [medley.core :refer [map-vals]]
+            [taoensso.timbre :as log])
   (:refer-clojure :exclude [deftype definterface]))
 
 ;; ## Schema
@@ -120,8 +121,10 @@
 
 (deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
-   :args        {}
+   ;; TODO: :includeDeprecated doesn't actually do anything at the moment
+   :args        {(s/optional-key :includeDeprecated) GraphQLBoolean}
    :solve       (fn [args]
+                  (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
                   (let [type-desc (get args 'TypeDescription)
                         type-definition (:type-definition (meta type-desc))]
                     (async/go
