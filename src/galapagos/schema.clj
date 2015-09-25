@@ -36,13 +36,18 @@
 
 ;; ### Enums, interfaces, unions and custom types
 
+(defn- type-metadata
+  "Get introspection information from var."
+  [type-name]
+  (-> type-name symbol resolve meta :introspection))
+
 (defn- fields-with-introspection-metadata
   "Adds introspection information to individual fields. As GraphQL types are used
   for field definitions, we can get the introspection information from the vars."
   [fields]
   (map-vals (fn [field]
               (if (map? field)
-                (with-meta field {:introspection (-> (:type field) symbol resolve meta :introspection)})
+                (with-meta field {:introspection (type-metadata (:type field))})
                 field))
     fields))
 
@@ -83,16 +88,29 @@
      {:fields     (into {} (map :fields ~ts))
       :interfaces (mapcat :interfaces ~ts)}))
 
+(defn- arg-metadata
+  "Determines metadata for a given argument key and type pair. The key may be wrapped as
+  schema.core/OptionalKey if the argument is not required."
+  [k t]
+  (let [arg-name (if (list? k) (second k) k)]
+    (-> {}
+      (assoc-in [arg-name :type]
+        (if (vector? t)
+          (assoc (type-metadata (first t)) :kind :LIST)
+          (type-metadata t)))
+      (assoc-in [arg-name :required] (not (list? k))))))
+
 (defmacro deffield
   "Defines a field that fetches something. The type will depend on what the field returns."
   [name s ret f]
   (if (= :- s)
-    (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])]
+    (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])
+          args-metadata (reduce (fn [acc [k v]] (into acc (arg-metadata k v))) {} (:args f))]
       `(def ~(vary-meta name assoc
                :introspection (-> type symbol resolve meta :introspection))
          (merge
            (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
-           {:returns ~ret})))
+           {:args ~(with-meta (:args f) args-metadata) :returns ~ret})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
 (defmacro defroot
@@ -102,7 +120,7 @@
 
 ;; ### Introspection types
 
-(defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
+(defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :LIST :NON_NULL)
 
 (deftype TypeDescription []
   ;; TODO: missing fields (see spec)
@@ -148,7 +166,9 @@
                     (async/go
                       (mapv
                         (fn [[name f]]
-                          (let [metadata (:introspection (or (meta f) (meta (find-var f))))]
+                          (let [metadata (assoc
+                                           (:introspection (or (meta f) (meta (find-var f))))
+                                           :args (meta (:args (:type f))))]
                             (with-meta
                               (->FieldDescription {:name name})
                               {:introspection metadata})))
@@ -158,12 +178,16 @@
   {:description "Finds the arguments of a field"
    :args        {}
    :solve       (fn [args]
-                  (let [field-desc (get args 'FieldDescription)]
-                    (println field-desc)
+                  (let [field-desc (get args 'FieldDescription)
+                        args (-> field-desc meta :introspection :args)]
                     (async/go
-                      [(->InputValueDescription
-                         {:name        :Foo
-                          :description "Bar"})])))})
+                      (mapv
+                        (fn [[name arg-meta]]
+                          (with-meta
+                            (->InputValueDescription
+                              {:name name :description "TODO: input value descriptions"})
+                            {:introspection (:type arg-meta)}))
+                        args))))})
 
 
 (defn- build-type-description
