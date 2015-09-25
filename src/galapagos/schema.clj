@@ -108,14 +108,17 @@
   ;; TODO: missing fields (see spec)
   {:fields {:name        {:type GraphQLString}
             :kind        {:type TypeKind}
-            :description {:type GraphQLString}}})
+            :description {:type GraphQLString}
+            :fields      'galapagos.schema/FindFields}})
 
 (deftype FieldDescription []
   ;; There is obviously a :type field missing. This is handled by a root query field
   ;; that knows how to get the type of a field. It's done this way because the solve
   ;; function is only available at runtime, after the type map has been built.
   ;; TODO: other missing fields (see spec)
-  {:fields {:name {:type GraphQLString}}})
+  {:fields {:name   {:type GraphQLString}
+            :args   'galapagos.schema/FindArgs
+            :fields 'galapagos.schema/FindFields}})
 
 (deftype InputValueDescription []
   {:fields {:name        {:type GraphQLString}
@@ -131,7 +134,7 @@
 ;; Likewise a skeleton field to which a `solve` method is associated once the
 ;; type map is known.
 (deffield FindObjectType :- TypeDescription
-  {:description "Finds the type of an object"
+  {:description "Finds the type of an object. For internal use only."
    :args        {}})
 
 (deffield FindFields :- [FieldDescription]
@@ -150,6 +153,17 @@
                               (->FieldDescription {:name name})
                               {:introspection metadata})))
                         (:fields type-definition)))))})
+
+(deffield FindArgs :- [InputValueDescription]
+  {:description "Finds the arguments of a field"
+   :args        {}
+   :solve       (fn [args]
+                  (let [field-desc (get args 'FieldDescription)]
+                    (println field-desc)
+                    (async/go
+                      [(->InputValueDescription
+                         {:name        :Foo
+                          :description "Bar"})])))})
 
 
 (defn- build-type-description
@@ -176,8 +190,8 @@
   See the `galapagos.introspection` namespace for the functions that handle building the type map."
   [type-map]
   (fn [args]
-    (let [field-desc (get args 'FieldDescription)
-          type-definition (get type-map (-> field-desc meta :introspection :name))]
+    (let [obj-desc (first (vals args))
+          type-definition (get type-map (-> obj-desc meta :introspection :name))]
       (async/go (build-type-description type-definition)))))
 
 (defn create-schema
@@ -186,8 +200,8 @@
   (let [type-map (introspection/type-map root)]
     {:root
      (-> root
+       ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
        (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
-       (assoc-in [:fields :fields :type] FindFields)
        (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
 
