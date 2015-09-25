@@ -28,7 +28,11 @@
     (given
       (core/execute!! blog-schema
         "{ __type(name: BlogUser) { fields { name } } }")
-      :data := {:__type {:fields [{:name :id} {:name :name} {:name :handle} {:name :friends}]}}))
+      :data := {:__type {:fields [{:name :id} {:name :name} {:name :handle} {:name :friends}]}})
+    (given
+      (core/execute!! blog-schema
+        "{ __type(name: BlogUser) { fields { args { name } } } }")
+      :data := {:__type {:fields [{:args []} {:args []} {:args []} {:args [{:name :order}]}]}}))
 
   (testing "Nested queries"
     (given
