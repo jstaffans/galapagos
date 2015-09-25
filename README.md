@@ -12,6 +12,11 @@ streamlined, concurrent data fetching is provided by the [muse](https://github.c
 
 See [links](https://github.com/jstaffans/galapagos/blob/master/links.md) for more information on GraphQL and the ideas behind it.
 
+## Development
+
+To help you into the Galapagos source code, there's an [annotated overview](http://jstaffans.github.io/galapagos/) of the
+source code in the spirit of literate programming.
+
 ## Status
 
 Galapagos is still very much pre-alpha software and nearly everything is subject to change.
@@ -19,11 +24,11 @@ Galapagos is still very much pre-alpha software and nearly everything is subject
 ### Schema definition
 
 The schema definition DSL is still a work-in-progress and a bit clunky in places. Prismatic's schema library is used
-for validation and coercion and I'd like to move galapagos' DSL closer to that used in Prismatic/schema. 
+for validation and coercion and I'd like to move Galapagos' DSL closer to that used in Prismatic/schema. 
 
 ### Queries
 
-Directives and query variables are missing. Validation is lacking. Introspection is not yet implemented.
+Directives and query variables are missing. Validation is lacking.
 Support for muse's query batching (a solution to the [1+N query problem] [1]) is not yet implemented.
 
 ### Mutation
