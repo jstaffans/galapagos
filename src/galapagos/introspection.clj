@@ -38,8 +38,11 @@
   ;; Register interfaces using the top-level map
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
+      :type interface
       :metadata (:introspection (meta interface))))
+
   (walk-fields root types)
+
   types)
 
 
