@@ -77,7 +77,7 @@
           (let [out-chan (async/chan 1
                            (map
                              (fn [solution]
-                               (util/apply-1 #(assoc {} (:type node) %) solution))))]
+                               (util/apply-1 #(assoc {} :__OBJ %) solution))))]
             (async/pipe ((:solve node) args) out-chan)))
 
         muse/LabeledSource

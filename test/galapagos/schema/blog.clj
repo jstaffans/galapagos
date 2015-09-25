@@ -18,7 +18,7 @@
   {:description "Returns the profile picture of the desired size."
    :args        {(s/optional-key :size) schema/GraphQLString}
    :solve       (fn [{:keys [size] :as args}]
-                  (async/go (str "url/for/id/" (get-in args ['Author :id]) "?size=" (or size "default"))))})
+                  (async/go (str "url/for/id/" (:id (schema/parent-obj args)) "?size=" (or size "default"))))})
 
 
 (schema/deftype Author [BlogUser]
@@ -34,7 +34,7 @@
    :solve       (fn [args]
                   (async/go
                     (->Author {:id              123
-                               :name            (str "Author Of " (get-in args ['Post :title]))
+                               :name            (str "Author Of " (:title (schema/parent-obj args)))
                                :preferredEditor :VIM
                                :handle          (str "author-123")})))})
 
@@ -58,7 +58,7 @@
    :solve       (fn [{:keys [order] :as args}]
                   (async/go
                     [(->Author {:id   512
-                                :name (str "Friend Of " (get-in args ['BlogUser :name]) " " order)})]))})
+                                :name (str "Friend Of " (:name (schema/parent-obj args)) " " order)})]))})
 
 
 (schema/defunion Blogger [Commenter Author])

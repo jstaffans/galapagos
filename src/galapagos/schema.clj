@@ -118,6 +118,19 @@
   (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
     `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
 
+;; ### Schema utilities
+
+(defn scalar?
+  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
+  [node]
+  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
+
+(defn parent-obj
+  "Gets the parent object from function arguments."
+  [args]
+  (:__OBJ args))
+
+
 ;; ### Introspection types
 
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :LIST :NON_NULL)
@@ -161,7 +174,7 @@
    :args        {(s/optional-key :includeDeprecated) GraphQLBoolean}
    :solve       (fn [args]
                   (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
-                  (let [type-desc (get args 'TypeDescription)
+                  (let [type-desc (parent-obj args)
                         type-definition (:type-definition (meta type-desc))]
                     (async/go
                       (mapv
@@ -178,7 +191,7 @@
   {:description "Finds the arguments of a field"
    :args        {}
    :solve       (fn [args]
-                  (let [field-desc (get args 'FieldDescription)
+                  (let [field-desc (get args :__OBJ)
                         args (-> field-desc meta :introspection :args)]
                     (async/go
                       (mapv
@@ -229,11 +242,4 @@
        ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
        (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
-
-;; ### Utilities
-
-(defn scalar?
-  "Check if a a node's type is scalar or enum. Relies on introspection metadata."
-  [node]
-  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
 
