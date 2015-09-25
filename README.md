@@ -14,7 +14,7 @@ See [links](https://github.com/jstaffans/galapagos/blob/master/links.md) for mor
 
 ## Development
 
-To help you into the Galapagos source code, there's an [annotated overview](http://jstaffans.github.io/galapagos/) of the
+To help in understanding the internals of Galapagos, there's an [annotated overview](http://jstaffans.github.io/galapagos/) of the
 source code in the spirit of literate programming.
 
 ## Status
