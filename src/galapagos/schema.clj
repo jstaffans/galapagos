@@ -65,10 +65,10 @@
 (defmacro definterface
   "Define a GraphQL interface."
   [name t]
-  (let [fields-with-type-names (fields-with-introspection-metadata (:fields t))]
+  (let [fields-with-metadata (fields-with-introspection-metadata (:fields t))]
     `(def ~name
        (with-meta
-         (merge ~t {:fields ~fields-with-type-names})
+         (merge ~t {:fields ~fields-with-metadata})
          {:introspection ~(merge (extract-introspection-metadata name t) {:kind :INTERFACE})}))))
 
 (defmacro deftype
@@ -224,8 +224,9 @@
   (let [type-map (introspection/type-map root)]
     {:root
      (-> root
-       ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
        (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
+
+       ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
        (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
 

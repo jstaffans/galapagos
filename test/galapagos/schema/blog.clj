@@ -31,7 +31,6 @@
             ;; TODO: the distinction should be made redundant.
             :profilePicture  {:type FindProfilePicture}}})
 
-
 (schema/deffield FindAuthor :- Author
   {:description "Finds the author of a post"
    :args        {}
