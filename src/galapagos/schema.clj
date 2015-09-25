@@ -105,12 +105,21 @@
 (defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :NON_NULL)
 
 (deftype TypeDescription []
+  ;; TODO: missing fields (see spec)
   {:fields {:name        {:type GraphQLString}
             :kind        {:type TypeKind}
             :description {:type GraphQLString}}})
 
 (deftype FieldDescription []
+  ;; There is obviously a :type field missing. This is handled by a root query field
+  ;; that knows how to get the type of a field. It's done this way because the solve
+  ;; function is only available at runtime, after the type map has been built.
+  ;; TODO: other missing fields (see spec)
   {:fields {:name {:type GraphQLString}}})
+
+(deftype InputValueDescription []
+  {:fields {:name        {:type GraphQLString}
+            :description {:type GraphQLString}}})
 
 ;; Skeleton field for finding a type. We can't solve anything before the type map
 ;; has been created, which is done in the `create-schema` function below. The `solve`
@@ -121,8 +130,8 @@
 
 ;; Likewise a skeleton field to which a `solve` method is associated once the
 ;; type map is known.
-(deffield FindTypeOfField :- TypeDescription
-  {:description "Finds the type of a field"
+(deffield FindObjectType :- TypeDescription
+  {:description "Finds the type of an object"
    :args        {}})
 
 (deffield FindFields :- [FieldDescription]
@@ -162,8 +171,8 @@
       (async/go (build-type-description type-definition)))))
 
 
-(defn- solve-type-by-field
-  "Determines the type of a field. Solves to a type defined in a type map.
+(defn- solve-type-by-object
+  "Determines the type of an object. Solves to a type defined in a type map.
   See the `galapagos.introspection` namespace for the functions that handle building the type map."
   [type-map]
   (fn [args]
@@ -179,7 +188,7 @@
      (-> root
        (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
        (assoc-in [:fields :fields :type] FindFields)
-       (assoc-in [:fields :type :type] (assoc FindTypeOfField :solve (solve-type-by-field type-map))))}))
+       (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
 
 ;; ### Utilities
