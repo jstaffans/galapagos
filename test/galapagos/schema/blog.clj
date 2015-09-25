@@ -50,6 +50,15 @@
                                 :preferredEditor preferredEditor
                                 :handle          (str "author-256")})]))})
 
+(schema/defenum FriendsOrder :ASC :DESC)
+
+(schema/deffield FindFriends :- [BlogUser]
+  {:description "Finds the friends of a blog user"
+   :args        {:order FriendsOrder}
+   :solve       (fn [{:keys [order] :as args}]
+                  (async/go
+                    [(->Author {:id   512
+                                :name (str "Friend Of " (get-in args ['BlogUser :name]) " " order)})]))})
 
 (schema/defunion Blogger [Commenter Author])
 
