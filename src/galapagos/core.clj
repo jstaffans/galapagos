@@ -4,6 +4,7 @@
             [clojure.core.async :as async]
             [schema.coerce :as coerce]
             [muse.core :as muse]
+            [taoensso.timbre :as log]
             [galapagos.schema :as schema])
   (:refer-clojure :exclude [compile]))
 
@@ -58,8 +59,9 @@
         args (or (:args query) {})
         coerced (coercer args)]
     (if-let [error-val (schema.utils/error-val coerced)]
-      (throw (IllegalArgumentException.
-               (str "Input argument coercion failed at " (:name query) " (" error-val ")")))
+      (do
+        (log/error (str "Could not coerce input argument at " (:name query) ":") error-val)
+        (throw (IllegalArgumentException.)))
       coerced)))
 
 ;; A GraphQL "object" node that resolves to other objects (more nodes)
@@ -218,7 +220,9 @@
                               (field-definition-in-type (get-in root [:interfaces interface]) (:name query)))
                             (-> (:type node) :type-definition :interfaces))))]
     field
-    (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
+    (do
+      (log/error "Could not find definition for field" (:name query))
+      (throw (IllegalStateException.)))))
 
 (defn- inline-fragment?
   "Checks if a fragment is defined in-line or separately. If it's defined
