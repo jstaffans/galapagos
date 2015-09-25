@@ -73,7 +73,7 @@
         muse/DataSource
         (fetch [_]
           ;; modify the solution with a transducer that maps the solution
-          ;; to the type of the node. Easier to deal with in child nodes.
+          ;; to a well-known key (:__OBJ) which makes access in child nodes easier.
           (let [out-chan (async/chan 1
                            (map
                              (fn [solution]
