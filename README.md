@@ -1,6 +1,6 @@
 # galapagos
 
-An efficient implementation of the GraphQL specification in Clojure.
+An implementation of the GraphQL specification in Clojure.
 
 [![Build Status](https://travis-ci.org/jstaffans/galapagos.svg?branch=master)](https://travis-ci.org/jstaffans/galapagos)
 
