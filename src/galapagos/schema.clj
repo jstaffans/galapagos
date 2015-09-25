@@ -96,7 +96,7 @@
     (-> {}
       (assoc-in [arg-name :type]
         (if (vector? t)
-          (assoc (type-metadata (first t)) :kind :LIST)
+          {:name :List :kind :LIST}
           (type-metadata t)))
       (assoc-in [arg-name :required] (not (list? k))))))
 
