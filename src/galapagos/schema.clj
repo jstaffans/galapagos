@@ -113,6 +113,14 @@
            {:args ~(with-meta (:args f) args-metadata) :returns ~ret})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
+(defn- field-args
+  "Gets the arguments map of a field. If the field is a reference to a var,
+  get the arguments map from the referenced var."
+  [f]
+  (if-let [t (:type f)]
+    (:args t)
+    (:args (-> f symbol find-var deref))))
+
 (defmacro defroot
   [name r]
   (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
@@ -181,7 +189,7 @@
                         (fn [[name f]]
                           (let [metadata (assoc
                                            (:introspection (or (meta f) (meta (find-var f))))
-                                           :args (meta (:args (:type f))))]
+                                           :args (meta (field-args f)))]
                             (with-meta
                               (->FieldDescription {:name name})
                               {:introspection metadata})))
