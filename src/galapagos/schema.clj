@@ -119,6 +119,12 @@
   {:description "Finds a type by name"
    :args        {:name GraphQLString}})
 
+;; Likewise a skeleton field to which a `solve` method is associated once the
+;; type map is known.
+(deffield FindTypeOfField :- TypeDescription
+  {:description "Finds the type of a field"
+   :args        {}})
+
 (deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
    ;; TODO: :includeDeprecated doesn't actually do anything at the moment
@@ -136,16 +142,6 @@
                               {:introspection metadata})))
                         (:fields type-definition)))))})
 
-(deffield FindTypeOfField :- TypeDescription
-  {:description "Finds the type of a field"
-   :args        {}
-   :solve       (fn [args]
-                  (let [field-desc (get args 'FieldDescription)]
-                    (println (:introspection (meta field-desc)))
-                    (async/go
-                      (->TypeDescription
-                        {:name "TypeOfField"
-                         :kind :SCALAR}))))})
 
 (defn- build-type-description
   "Builds a TypeDescription from information gathered from type map."
