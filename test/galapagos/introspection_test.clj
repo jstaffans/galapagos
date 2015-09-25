@@ -24,6 +24,12 @@
       :String :⊃ {:__kind :SCALAR}
       :Int :⊃ {:__kind :SCALAR}))
 
+  (testing "Interface fields"
+    (given
+      (core/execute!! blog-schema
+        "{ __type(name: BlogUser) { fields { name } } }")
+      :data := {:__type {:fields [{:name :id} {:name :name} {:name :handle} {:name :friends}]}}))
+
   (testing "Nested queries"
     (given
       (core/execute!! blog-schema
