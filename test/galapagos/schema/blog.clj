@@ -5,9 +5,6 @@
 
 (schema/defenum PreferredEditor :VIM :EMACS :JOE)
 
-;; TODO: move syntax closer to Prismatic Schema (e.g. use :- operator)
-;; TODO: accept Prismatic Schema schemas as types directly
-
 (schema/definterface BlogUser
   {:fields {:id      {:type schema/GraphQLString}
             :name    {:type schema/GraphQLString}
