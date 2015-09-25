@@ -185,7 +185,7 @@
                         (fn [[name arg-meta]]
                           (with-meta
                             (->InputValueDescription
-                              {:name name :description "TODO: input value descriptions"})
+                              {:name name :description "TODO: input value descriptions" :defaultValue "TODO: default values"})
                             {:introspection (:type arg-meta)}))
                         args))))})
 
