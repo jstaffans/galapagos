@@ -177,26 +177,26 @@
          (apply galapagos.core/->SolvableLookupField)
          (conj other-fields))))
 
-(defmulti field-definition-in-node
+(defmulti field-definition-in-type
   "Determines the manner in which a field type is defined in a node. It may be a reference
   to a field var, or be defined directly in the node. If neither, it may be part of an interface,
   in which case it is not defined in the node itself."
-  (fn [node field]
-    (if-let [definition (get-in (:type node) [:fields field])]
+  (fn [type field]
+    (if-let [definition (get-in type [:fields field])]
       (if (map? definition)
         :direct
         :reference-to-field-var)
       :not-defined-in-node)))
 
-(defmethod field-definition-in-node :direct
-  [node field]
-  (get-in (:type node) [:fields field]))
+(defmethod field-definition-in-type :direct
+  [type field]
+  (get-in type [:fields field]))
 
-(defmethod field-definition-in-node :reference-to-field-var
-  [node field]
-  (assoc {} :type (-> (get-in (:type node) [:fields field]) symbol find-var deref)))
+(defmethod field-definition-in-type :reference-to-field-var
+  [type field]
+  (assoc {} :type (-> (get-in type [:fields field]) symbol find-var deref)))
 
-(defmethod field-definition-in-node :not-defined-in-node
+(defmethod field-definition-in-type :not-defined-in-node
   [_ _] nil)
 
 (defn- get-field-definition
@@ -205,7 +205,7 @@
   of the schema graph."
   [root node query]
   (if-let [field (or
-                   (field-definition-in-node node (:name query))
+                   (field-definition-in-type (:type node) (:name query))
 
                    ;; This is mainly used by introspection types, which are added
                    ;; to the root during a pre-processing step. Make sure we find
@@ -215,7 +215,7 @@
                    ;; Check interfaces for field definition.
                    (first (keep
                             (fn [interface]
-                              (get-in root [:interfaces interface :fields (:name query)]))
+                              (field-definition-in-type (get-in root [:interfaces interface]) (:name query)))
                             (-> (:type node) :type-definition :interfaces))))]
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
