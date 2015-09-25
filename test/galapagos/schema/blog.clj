@@ -9,9 +9,10 @@
 ;; TODO: accept Prismatic Schema schemas as types directly
 
 (schema/definterface BlogUser
-  {:fields {:id     {:type schema/GraphQLString}
-            :name   {:type schema/GraphQLString}
-            :handle {:type schema/GraphQLString}}})
+  {:fields {:id      {:type schema/GraphQLString}
+            :name    {:type schema/GraphQLString}
+            :handle  {:type schema/GraphQLString}
+            :friends 'galapagos.schema.blog/FindFriends}})
 
 (schema/deftype Commenter [BlogUser]
   {:fields {:numComments {:type schema/GraphQLInt}}})
