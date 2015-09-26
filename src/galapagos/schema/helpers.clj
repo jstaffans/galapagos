@@ -2,7 +2,17 @@
   (:require [medley.core :refer [map-vals]]
             [schema.core :as s]))
 
+;; ## Schema helpers
+;;
+;; The schema definition DSL of Galapagos is meant to be as easily usable
+;; as possible. The vector format of field definitions is however not ideal
+;; for prpcessing internally, so here are some helpers that convert those
+;; vectors to maps.
+
 (defn- to-field-definition
+  "Takes a vector of elements defining a field and returns a map in a format
+  Galapagos can easier work with. The element vector is basically everything
+  to the right of the field identifier in an individual field definition row."
   [v]
   (let [required? (keyword? (some #{:!} v))
         field-def (into {} (map #(assoc {} %1 %2)
