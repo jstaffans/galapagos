@@ -7,9 +7,9 @@
             [schema.coerce :as coerce]))
 
 (schema/deffield SomeField :- schema/GraphQLString
-  {:args {:id  schema/GraphQLInt
-          :ids [schema/GraphQLInt]
-          (s/optional-key :optional) schema/GraphQLString}})
+  {:args [:id       schema/GraphQLInt :!
+          :ids      [schema/GraphQLInt] :!
+          :optional schema/GraphQLString]})
 
 (deftest schema-test
   (testing "Coercion"
@@ -19,15 +19,19 @@
         :arg2 := 1.5)))
 
   (testing "Field argument metadata"
-    (given (meta (:args SomeField))
-      :id := {:type {:name :Int, :kind :SCALAR}, :required true}
-      :ids := {:type {:name :List, :kind :LIST}, :required true}
-      :optional := {:type {:name :String, :kind :SCALAR}, :required false}))
+    (let [args (:args SomeField)]
+      (given (:id args)
+        (comp :introspection meta) := {:name :Int, :kind :SCALAR})
+      (given (:ids args)
+        (comp :introspection meta) := {:name :List, :kind :LIST})
+      (given (:optional args)
+        (comp :introspection meta) := {:name :String, :kind :SCALAR})))
 
   (testing "Schema definition helpers"
-    (given (helpers/to-field-map [:id "SomeType" "Some description" :title "AnotherType!"])
-      :id := {:type "SomeType" :description "Some description" :required false}
-      :title := {:type "AnotherType" :required true})))
+    (let [[s1 s2] [(symbol "SomeType") (symbol "AnotherType")]]
+      (given (helpers/to-field-map [:id s1 "Some description" :title s2 :!])
+        :id := {:type s1 :description "Some description" :required? false}
+        :title := {:type s2 :required? true}))))
 
 
 

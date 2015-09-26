@@ -55,7 +55,7 @@
 (defn- coerced-args
   "Coerces field input arguments using a basic string coercion matcher."
   [node query]
-  (let [coercer (coerce/coercer (:args node) coerce/string-coercion-matcher)
+  (let [coercer (coerce/coercer (into {} (map :coercion (vals (:args node)))) coerce/string-coercion-matcher)
         args (or (:args query) {})
         coerced (coercer args)]
     (if-let [error-val (schema.utils/error-val coerced)]
@@ -185,9 +185,9 @@
   in which case it is not defined in the node itself."
   (fn [type field]
     (if-let [definition (get-in type [:fields field])]
-      (if (map? definition)
-        :direct
-        :reference-to-field-var)
+      (if (contains? definition :var)
+        :reference-to-field-var
+        :direct)
       :not-defined-in-node)))
 
 (defmethod field-definition-in-type :direct
@@ -196,7 +196,7 @@
 
 (defmethod field-definition-in-type :reference-to-field-var
   [type field]
-  (assoc {} :type (-> (get-in type [:fields field]) symbol find-var deref)))
+  (assoc {} :type (-> (get-in type [:fields field :var]) symbol find-var deref)))
 
 (defmethod field-definition-in-type :not-defined-in-node
   [_ _] nil)

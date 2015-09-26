@@ -1,5 +1,6 @@
 (ns galapagos.schema
-  (:require [galapagos.introspection :as introspection]
+  (:require [galapagos.schema.helpers :as helpers]
+            [galapagos.introspection :as introspection]
             [schema.core :as s]
             [clojure.core.async :as async]
             [medley.core :refer [map-vals]]
@@ -49,9 +50,13 @@
   for field definitions, we can get the introspection information from the vars."
   [fields]
   (map-vals (fn [field]
-              (if (map? field)
-                (with-meta field {:introspection (type-metadata (:type field))})
-                field))
+              (if (:var field)
+                field
+                (with-meta field {:introspection
+                                  (if (vector? (:type field))
+                                    ;; TODO: add ofType, do the same for NON_NULL
+                                    {:name :List :kind :LIST}
+                                    (type-metadata (:type field)))})))
     fields))
 
 (defn- extract-introspection-metadata
@@ -71,7 +76,8 @@
 (defmacro definterface
   "Define a GraphQL interface."
   [name t]
-  (let [fields-with-metadata (fields-with-introspection-metadata (:fields t))]
+  (let [field-map (helpers/to-field-map (:fields t))
+        fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(def ~name
        (with-meta
          (merge ~t {:fields ~fields-with-metadata})
@@ -81,10 +87,13 @@
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (into [] (map str interfaces))
-        fields-with-metadata (fields-with-introspection-metadata (:fields t))]
+        field-map (helpers/to-field-map (:fields t))
+        fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(do
        (def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :OBJECT}))
-         (merge ~t {:interfaces (map keyword ~interface-names)} {:fields ~fields-with-metadata}))
+         (merge ~t
+           {:interfaces (map keyword ~interface-names)}
+           {:fields ~fields-with-metadata}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
 (defmacro defunion
@@ -94,42 +103,32 @@
      {:fields     (into {} (map :fields ~ts))
       :interfaces (mapcat :interfaces ~ts)}))
 
-(defn- arg-metadata
-  "Determines metadata for a given argument key and type pair. The key may be wrapped as
-  schema.core/OptionalKey if the argument is not required."
-  [k t]
-  (let [arg-name (if (list? k) (second k) k)]
-    (-> {}
-      (assoc-in [arg-name :type]
-        (if (vector? t)
-          {:name :List :kind :LIST}
-          (type-metadata t)))
-      (assoc-in [arg-name :required] (not (list? k))))))
-
 (defmacro deffield
   "Defines a field that fetches something. The type will depend on what the field returns."
   [name s ret f]
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])
-          args-metadata (reduce (fn [acc [k v]] (into acc (arg-metadata k v))) {} (:args f))]
-      `(def ~(vary-meta name assoc
-               :introspection (-> type symbol resolve meta :introspection))
-         (merge
-           (assoc ~f :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity)
-           {:args ~(with-meta (:args f) args-metadata) :returns ~ret})))
+          arg-map (helpers/to-arg-map (:args f))
+          args-with-metadata (fields-with-introspection-metadata arg-map)
+          ;args-metadata (reduce (fn [acc [k v]] (into acc (arg-metadata k v))) {} (:args f))
+          ]
+      `(def ~(vary-meta name assoc :introspection (-> type symbol resolve meta :introspection))
+         (merge ~f
+           {:args ~args-with-metadata :returns ~ret :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
 (defn- field-args
-  "Gets the arguments map of a field. If the field is a reference to a var,
-  get the arguments map from the referenced var."
+  "Gets the arguments map of a field. The arguments map may be defined in a referenced var."
   [f]
-  (if-let [t (:type f)]
-    (:args t)
-    (:args (-> f symbol find-var deref))))
+  (let [t (:type f)]
+    (if (symbol? t)
+      (-> t symbol find-var deref :args)
+      (:args t))))
 
 (defmacro defroot
   [name r]
-  (let [fields-with-metadata (fields-with-introspection-metadata (:fields r))]
+  (let [field-map (helpers/to-field-map (:fields r))
+        fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
 
 ;; ### Schema utilities
@@ -151,41 +150,41 @@
 
 (deftype TypeDescription []
   ;; TODO: missing fields (see spec)
-  {:fields {:name        {:type GraphQLString}
-            :kind        {:type TypeKind}
-            :description {:type GraphQLString}
-            :fields      'galapagos.schema/FindFields}})
+  {:fields [:name        GraphQLString
+            :kind        TypeKind
+            :description GraphQLString
+            :fields      'galapagos.schema/FindFields]})
 
 (deftype FieldDescription []
   ;; There is obviously a :type field missing. This is handled by a root query field
   ;; that knows how to get the type of a field. It's done this way because the solve
   ;; function is only available at runtime, after the type map has been built.
   ;; TODO: other missing fields (see spec)
-  {:fields {:name   {:type GraphQLString}
+  {:fields [:name   GraphQLString
             :args   'galapagos.schema/FindArgs
-            :fields 'galapagos.schema/FindFields}})
+            :fields 'galapagos.schema/FindFields]})
 
 (deftype InputValueDescription []
-  {:fields {:name        {:type GraphQLString}
-            :description {:type GraphQLString}}})
+  {:fields [:name        GraphQLString
+            :description GraphQLString]})
 
 ;; Skeleton field for finding a type. We can't solve anything before the type map
 ;; has been created, which is done in the `create-schema` function below. The `solve`
 ;; function is therefore added once the type map is available.
 (deffield FindType :- TypeDescription
   {:description "Finds a type by name"
-   :args        {:name GraphQLString}})
+   :args        [:name GraphQLString :!]})
 
 ;; Likewise a skeleton field to which a `solve` method is associated once the
 ;; type map is known.
 (deffield FindObjectType :- TypeDescription
   {:description "Finds the type of an object. For internal use only."
-   :args        {}})
+   :args        []})
 
 (deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
    ;; TODO: :includeDeprecated doesn't actually do anything at the moment
-   :args        {(s/optional-key :includeDeprecated) GraphQLBoolean}
+   :args        [:includeDeprecated GraphQLBoolean]
    :solve       (fn [args]
                   (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
                   (let [type-desc (parent-obj args)
@@ -194,8 +193,8 @@
                       (mapv
                         (fn [[name f]]
                           (let [metadata (assoc
-                                           (:introspection (or (meta f) (meta (find-var f))))
-                                           :args (meta (field-args f)))]
+                                           (:introspection (or (meta f) (meta (find-var (:var f)))))
+                                           :args (field-args f))]
                             (with-meta
                               (->FieldDescription {:name name})
                               {:introspection metadata})))
@@ -203,7 +202,7 @@
 
 (deffield FindArgs :- [InputValueDescription]
   {:description "Finds the arguments of a field"
-   :args        {}
+   :args        []
    :solve       (fn [args]
                   (let [field-desc (get args :__OBJ)
                         args (-> field-desc meta :introspection :args)]
@@ -212,8 +211,10 @@
                         (fn [[name arg-meta]]
                           (with-meta
                             (->InputValueDescription
-                              {:name name :description "TODO: input value descriptions" :defaultValue "TODO: default values"})
-                            {:introspection (:type arg-meta)}))
+                              {:name         name
+                               :description  "TODO: input value descriptions"
+                               :defaultValue "TODO: default values"})
+                            (meta arg-meta)))
                         args))))})
 
 

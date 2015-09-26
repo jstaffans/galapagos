@@ -6,31 +6,32 @@
 (schema/defenum PreferredEditor :VIM :EMACS :JOE)
 
 (schema/definterface BlogUser
-  {:fields {:id      {:type schema/GraphQLString}
-            :name    {:type schema/GraphQLString}
-            :handle  {:type schema/GraphQLString}
-            :friends 'galapagos.test-schemas.blog/FindFriends}})
+  {:fields [:id      schema/GraphQLString
+            :name    schema/GraphQLString
+            :handle  schema/GraphQLString
+            :friends 'galapagos.test-schemas.blog/FindFriends]})
 
 (schema/deftype Commenter [BlogUser]
-  {:fields {:numComments {:type schema/GraphQLInt}}})
+  {:fields [:numComments schema/GraphQLInt]})
 
 (schema/deffield FindProfilePicture :- schema/GraphQLString
   {:description "Returns the profile picture of the desired size."
-   :args        {(s/optional-key :size) schema/GraphQLString}
+   :args        [:size schema/GraphQLString]
    :solve       (fn [{:keys [size] :as args}]
                   (async/go (str "url/for/id/" (:id (schema/parent-obj args)) "?size=" (or size "default"))))})
 
 
 (schema/deftype Author [BlogUser]
-  {:fields {:preferredEditor {:type PreferredEditor}
-            :averageRating   {:type schema/GraphQLFloat}
-            ;; Is not a quoted reference (like FindAuthor below) because it returns a scalar.
+  {:fields [:preferredEditor PreferredEditor :!
+            :averageRating   schema/GraphQLFloat :!
+
+            ;; :profilePicture is not a quoted reference (like FindAuthor below) because it returns a scalar.
             ;; TODO: the distinction should be made redundant.
-            :profilePicture  {:type FindProfilePicture}}})
+            :profilePicture  FindProfilePicture]})
 
 (schema/deffield FindAuthor :- Author
   {:description "Finds the author of a post"
-   :args        {}
+   :args        []
    :solve       (fn [args]
                   (async/go
                     (->Author {:id              123
@@ -41,8 +42,9 @@
 
 (schema/deffield FindAuthors :- [Author]
   {:description "Finds authors by preferred editor"
-   :args        {:preferredEditor         PreferredEditor
-                 (s/optional-key :rating) schema/GraphQLFloat}
+   :args        [:preferredEditor PreferredEditor :!
+                 :rating          schema/GraphQLFloat]
+
    :solve       (fn [{:keys [preferredEditor rating]}]
                   (async/go
                     [(->Author {:id              256
@@ -54,7 +56,7 @@
 
 (schema/deffield FindFriends :- [BlogUser]
   {:description "Finds the friends of a blog user"
-   :args        {(s/optional-key :order) FriendsOrder}
+   :args        [:order FriendsOrder]
    :solve       (fn [{:keys [order] :as args}]
                   (async/go
                     [(->Author {:id   512
@@ -67,15 +69,14 @@
 
 (schema/deftype Post []
   {:description "A blog post"
-   :fields      {:id     {:type schema/GraphQLInt :description "The ID"}
-                 :title  {:type schema/GraphQLString :description "The title"}
-                 :date   {:type PublishingDate :description "The publishing date"}
-                 ;; TODO: don't require fully qualified name here
-                 :author 'galapagos.test-schemas.blog/FindAuthor}})
+   :fields      [:id     schema/GraphQLInt "The ID"
+                 :title  schema/GraphQLString "The title"
+                 :date   PublishingDate
+                 :author 'galapagos.test-schemas.blog/FindAuthor]})
 
 (schema/deffield FindBloggers :- [Blogger]
   {:description "Finds bloggers by handles"
-   :args        {:handles [schema/GraphQLString]}
+   :args        [:handles [schema/GraphQLString]]
    :solve       (fn [{:keys [handles]}]
                   (async/go
                     (mapv
@@ -86,7 +87,7 @@
 
 (schema/deffield FindPost :- Post
   {:description "Finds a post by id"
-   :args        {:id schema/GraphQLID}
+   :args        [:id schema/GraphQLInt]
    :solve       (fn [{:keys [id]}]
                   (async/go
                     (if (< id 3)
@@ -105,10 +106,10 @@
 (schema/defroot QueryRoot
   {:description "The query root for this schema"
 
-   :fields      {:post     {:type FindPost}
-                 :posts    {:type FindPosts}
-                 :bloggers {:type FindBloggers}
-                 :authors  {:type FindAuthors}}
+   :fields      [:post     FindPost
+                 :posts    FindPosts
+                 :bloggers FindBloggers
+                 :authors  FindAuthors]
 
    ;; TODO: add interface map as pre-processing step on schema creation.
    :interfaces  {:BlogUser BlogUser}})
