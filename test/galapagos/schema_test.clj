@@ -3,6 +3,7 @@
             [juxt.iota :refer [given]]
             [schema.core :as s]
             [galapagos.schema :as schema]
+            [galapagos.schema.helpers :as helpers]
             [schema.coerce :as coerce]))
 
 (schema/deffield SomeField :- schema/GraphQLString
@@ -21,7 +22,12 @@
     (given (meta (:args SomeField))
       :id := {:type {:name :Int, :kind :SCALAR}, :required true}
       :ids := {:type {:name :List, :kind :LIST}, :required true}
-      :optional := {:type {:name :String, :kind :SCALAR}, :required false})))
+      :optional := {:type {:name :String, :kind :SCALAR}, :required false}))
+
+  (testing "Schema definition helpers"
+    (given (helpers/to-field-map [:id "SomeType" "Some description" :title "AnotherType!"])
+      :id := {:type "SomeType" :description "Some description" :required false}
+      :title := {:type "AnotherType" :required true})))
 
 
 

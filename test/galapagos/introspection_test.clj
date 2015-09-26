@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [juxt.iota :refer [given]]
             [galapagos.introspection :as introspection]
-            [galapagos.schema.blog :refer [QueryRoot]]
+            [galapagos.test-schemas.blog :refer [QueryRoot]]
             [galapagos.schema :as schema]
             [galapagos.core :as core]))
 

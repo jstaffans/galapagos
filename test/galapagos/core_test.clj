@@ -3,7 +3,7 @@
             [juxt.iota :refer [given]]
             [galapagos.core :as core]
             [galapagos.schema :as schema]
-            [galapagos.schema.blog :refer [QueryRoot]]))
+            [galapagos.test-schemas.blog :refer [QueryRoot]]))
 
 (def blog-schema
   (schema/create-schema QueryRoot))

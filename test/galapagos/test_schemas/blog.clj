@@ -1,4 +1,4 @@
-(ns galapagos.schema.blog
+(ns galapagos.test-schemas.blog
   (:require [galapagos.schema :as schema]
             [schema.core :as s]
             [clojure.core.async :as async]))
@@ -9,7 +9,7 @@
   {:fields {:id      {:type schema/GraphQLString}
             :name    {:type schema/GraphQLString}
             :handle  {:type schema/GraphQLString}
-            :friends 'galapagos.schema.blog/FindFriends}})
+            :friends 'galapagos.test-schemas.blog/FindFriends}})
 
 (schema/deftype Commenter [BlogUser]
   {:fields {:numComments {:type schema/GraphQLInt}}})
@@ -71,7 +71,7 @@
                  :title  {:type schema/GraphQLString :description "The title"}
                  :date   {:type PublishingDate :description "The publishing date"}
                  ;; TODO: don't require fully qualified name here
-                 :author 'galapagos.schema.blog/FindAuthor}})
+                 :author 'galapagos.test-schemas.blog/FindAuthor}})
 
 (schema/deffield FindBloggers :- [Blogger]
   {:description "Finds bloggers by handles"

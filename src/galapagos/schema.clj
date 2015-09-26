@@ -34,7 +34,10 @@
 
 (defscalar GraphQLBoolean s/Bool)
 
+
 ;; ### Enums, interfaces, unions and custom types
+
+;; #### Type definition utilitiy functions
 
 (defn- type-metadata
   "Get introspection information from var."
@@ -55,6 +58,9 @@
   "Extracts the bits of a type definition that are interesting for introspection"
   [name m]
   (assoc {} :name (keyword name) :description (:description m)))
+
+
+;; #### Type definition macros
 
 (defmacro defenum
   [name & values]
