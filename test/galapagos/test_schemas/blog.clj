@@ -103,13 +103,19 @@
                     [{:id 1 :title "Some post"}
                      {:id 2 :title "Another post"}]))})
 
+(schema/deffield FindHelloWorld :- schema/GraphQLString
+  {:args  []
+   :solve (fn [_] (async/go "World!"))})
+
+
 (schema/defroot QueryRoot
   {:description "The query root for this schema"
 
-   :fields      [:post     FindPost
-                 :posts    FindPosts
+   :fields      [:post FindPost
+                 :posts FindPosts
                  :bloggers FindBloggers
-                 :authors  FindAuthors]
+                 :authors FindAuthors
+                 :hello FindHelloWorld]
 
    ;; TODO: add interface map as pre-processing step on schema creation.
    :interfaces  {:BlogUser BlogUser}})
