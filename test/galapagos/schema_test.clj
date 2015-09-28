@@ -21,9 +21,9 @@
   (testing "Field argument metadata"
     (let [args (:args SomeField)]
       (given (:id args)
-        (comp :introspection meta) := {:name :Int, :kind :SCALAR})
+        (comp :introspection meta) := {:name :Non-Null, :kind :NON_NULL, :of-type {:name :Int, :kind :SCALAR}})
       (given (:ids args)
-        (comp :introspection meta) := {:name :List, :kind :LIST})
+        (comp :introspection meta) := {:name :Non-Null, :kind :NON_NULL, :of-type {:name :List, :kind :LIST, :of-type {:name :Int, :kind :SCALAR}}})
       (given (:optional args)
         (comp :introspection meta) := {:name :String, :kind :SCALAR})))
 

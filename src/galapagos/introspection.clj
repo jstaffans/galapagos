@@ -6,7 +6,6 @@
 ;; This is defined precisely in https://facebook.github.io/graphql/#sec-Schema-Introspection .
 ;; This namespace contains functions that build an overview map of the types used in the schema.
 
-
 (defn- register-type!
   "Stateful registration of a type. Besides normal information such as the description
   and the field map, we also register introspection metadata such as the *kind* of type."
@@ -22,12 +21,9 @@
   so the performance hit is negligible."
   [node types]
   (doseq [[_ field] (:fields node)]
-    (let [type (cond
-                 (map? (:type field)) (:type field)
-                 :else {})]
-      (register-type! types
-        :type type
-        :metadata (:introspection (or (meta field) (meta type))))))
+    (let [type (if (coll? (:type field)) (:type field) {})
+          metadata (:introspection (or (meta field) (meta type)))]
+      (register-type! types :type type :metadata (or (:of-type metadata) metadata))))
   (doseq [[_ {:keys [type]}] (:fields node)]
     (walk-fields type types)))
 

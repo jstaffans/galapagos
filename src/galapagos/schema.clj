@@ -38,26 +38,36 @@
 
 ;; ### Enums, interfaces, unions and custom types
 
-;; #### Type definition utilitiy functions
+;; #### Introspection helpers
 
 (defn- type-metadata
   "Get introspection information from var."
   [type-name]
   (-> type-name symbol resolve meta :introspection))
 
+(defn- list-of
+  [type]
+  (assoc {} :name :List :kind :LIST :of-type type))
+
+(defn- non-null-of
+  [type]
+  (assoc {} :name :Non-Null :kind :NON_NULL :of-type type))
+
+(defn- field-metadata
+  [field]
+  (if (:var field)
+    field
+    (let [type-metadata (if (vector? (:type field))
+                          (list-of (type-metadata (first (:type field))))
+                          (type-metadata (:type field)))
+          nullable-metadata (if (:required? field) (non-null-of type-metadata) type-metadata)]
+      (with-meta field {:introspection nullable-metadata}))))
+
 (defn- fields-with-introspection-metadata
   "Adds introspection information to individual fields. As GraphQL types are used
   for field definitions, we can get the introspection information from the vars."
   [fields]
-  (map-vals (fn [field]
-              (if (:var field)
-                field
-                (with-meta field {:introspection
-                                  (if (vector? (:type field))
-                                    ;; TODO: add ofType, do the same for NON_NULL
-                                    {:name :List :kind :LIST}
-                                    (type-metadata (:type field)))})))
-    fields))
+  (map-vals field-metadata fields))
 
 (defn- extract-introspection-metadata
   "Extracts the bits of a type definition that are interesting for introspection"
@@ -136,7 +146,10 @@
 (defn scalar?
   "Check if a a node's type is scalar or enum. Relies on introspection metadata."
   [node]
-  (contains? #{:ENUM :SCALAR} (-> (meta node) :introspection :kind)))
+  (let [metadata (-> (meta node) :introspection)]
+    (or
+      (contains? #{:ENUM :SCALAR} (:kind metadata))
+      (and (= :NON_NULL (:kind metadata)) (contains? #{:ENUM :SCALAR} (:kind (:of-type metadata)))))))
 
 (defn parent-obj
   "Gets the parent object from function arguments."
