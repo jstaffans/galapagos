@@ -14,7 +14,7 @@
     (swap! types #(assoc % type-name (assoc type :__name type-name :description desc :__kind kind)))))
 
 
-(defn- walk-fields
+(defn- walk-fields!
   "Recursively walks the fields of a type and registers any types found. It may happen
   that a type is registered multiple times, the previous registration then being overwritten.
   This only happens at startup though, not when an introspection query is performed,
@@ -25,26 +25,29 @@
           metadata (:introspection (or (meta field) (meta type)))]
       (register-type! types :type type :metadata (or (:of-type metadata) metadata))))
   (doseq [[_ {:keys [type]}] (:fields node)]
-    (walk-fields type types)))
+    (walk-fields! type types)))
 
 
-(defn- walk
+(defn- walk!
   "Registers interface types and then starts recursion of the fields of the root query type."
   [root types]
+  (walk-fields! root types)
+
+  #_(doseq [k (keys @types)]
+    (println k))
+
   ;; Register interfaces using the top-level map
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
       :type interface
-      :metadata (:introspection (meta interface))))
-
-  (walk-fields root types)
-
-  types)
+      :metadata (:introspection (meta interface)))))
 
 
 (defn type-map
   "Returns a map of all types used in the given schema."
   [root]
-  @(walk root (atom {})))
+  (let [types (atom {})]
+    (walk! root types)
+    @types))
 
 

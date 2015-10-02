@@ -96,13 +96,15 @@
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
-  (let [interface-names (into [] (map str interfaces))
+  (let [interface-names (mapv str interfaces)
+        qualified-interface-names (mapv #(str *ns* "/" %) interfaces)
         field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(do
        (def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :OBJECT}))
          (merge ~t
-           {:interfaces (map keyword ~interface-names)}
+           {:interfaces (mapv keyword ~interface-names)}
+           {:interface-definitions (mapv symbol ~qualified-interface-names)}
            {:fields ~fields-with-metadata}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
 
@@ -110,8 +112,9 @@
   "Define a union of previously defined types."
   [name ts]
   `(def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name {}) {:kind :UNION}))
-     {:fields     (into {} (map :fields ~ts))
-      :interfaces (mapcat :interfaces ~ts)}))
+     {:fields                (into {} (map :fields ~ts))
+      :interfaces            (mapcat :interfaces ~ts)
+      :interface-definitions (mapcat :interface-definitions ~ts)}))
 
 (defmacro deffield
   "Defines a field that fetches something. The type will depend on what the field returns."
@@ -119,9 +122,7 @@
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])
           arg-map (helpers/to-arg-map (:args f))
-          args-with-metadata (fields-with-introspection-metadata arg-map)
-          ;args-metadata (reduce (fn [acc [k v]] (into acc (arg-metadata k v))) {} (:args f))
-          ]
+          args-with-metadata (fields-with-introspection-metadata arg-map)]
       `(def ~(vary-meta name assoc :introspection (-> type symbol resolve meta :introspection))
          (merge ~f
            {:args ~args-with-metadata :returns ~ret :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity})))
@@ -146,10 +147,10 @@
 (defn scalar?
   "Check if a a node's type is scalar or enum. Relies on introspection metadata."
   [node]
-  (let [metadata (-> (meta node) :introspection)]
-    (or
-      (contains? #{:ENUM :SCALAR} (:kind metadata))
-      (and (= :NON_NULL (:kind metadata)) (contains? #{:ENUM :SCALAR} (:kind (:of-type metadata)))))))
+  (let [metadata (-> (meta node) :introspection)
+        kind-scalar? (fn [kind] (contains? #{:ENUM :SCALAR} kind))
+        kind (:kind metadata)]
+    (or (kind-scalar? kind) (and (= :NON_NULL kind) (kind-scalar? (:kind (:of-type metadata)))))))
 
 (defn parent-obj
   "Gets the parent object from function arguments."
@@ -265,9 +266,9 @@
   (let [type-map (introspection/type-map root)]
     {:root
      (-> root
-       (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
+         (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
 
-       ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
-       (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
+         ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
+         (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
 
