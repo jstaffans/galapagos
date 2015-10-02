@@ -88,6 +88,8 @@
   [name t]
   (let [field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
+
+    ;; TODO: only place where metadata is not attached to the var itself. Change it to be uniform!
     `(def ~name
        (with-meta
          (merge ~t {:fields ~fields-with-metadata})
@@ -121,11 +123,13 @@
   [name s ret f]
   (if (= :- s)
     (let [[type arity] (if (vector? ret) [(first ret) :many] [ret :one])
+          type-metadata (-> type symbol resolve meta :introspection)
+          returns (if (= arity :many) (list-of type-metadata) type-metadata)
           arg-map (helpers/to-arg-map (:args f))
           args-with-metadata (fields-with-introspection-metadata arg-map)]
-      `(def ~(vary-meta name assoc :introspection (-> type symbol resolve meta :introspection))
+      `(def ~(vary-meta name assoc :introspection type-metadata)
          (merge ~f
-           {:args ~args-with-metadata :returns ~ret :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity})))
+           {:args ~args-with-metadata :returns ~returns :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
 (defn- field-args

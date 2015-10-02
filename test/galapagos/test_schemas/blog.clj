@@ -24,10 +24,7 @@
 (schema/deftype Author [BlogUser]
   {:fields [:preferredEditor PreferredEditor :!
             :averageRating   schema/GraphQLFloat :!
-
-            ;; :profilePicture is not a quoted reference (like FindAuthor below) because it returns a scalar.
-            ;; TODO: the distinction should be made redundant.
-            :profilePicture  FindProfilePicture]})
+            :profilePicture  'galapagos.test-schemas.blog/FindProfilePicture]})
 
 (schema/deffield FindAuthor :- Author
   {:description "Finds the author of a post"

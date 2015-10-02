@@ -250,7 +250,7 @@
   as opposed to a simple map lookup."
   [node]
   (let [ret (:returns (:type node))]
-    (and ret (not (vector? ret)) (schema/scalar? node))))
+    (and ret (contains? #{:ENUM :SCALAR} (:kind ret)))))
 
 (defn- as-node
   "In this implementation, a node is always represented by a map with a `:type` key.
