@@ -2,11 +2,10 @@
   (:require [clojure.test :refer :all]
             [juxt.iota :refer [given]]
             [galapagos.core :as core]
-            [galapagos.schema :as schema]
             [galapagos.test-schemas.blog :refer [QueryRoot]]))
 
 (def blog-schema
-  (schema/create-schema QueryRoot))
+  (core/create-schema QueryRoot))
 
 (deftest core-test
   (testing "Simple query of existing post"

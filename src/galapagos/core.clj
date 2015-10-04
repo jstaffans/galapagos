@@ -5,7 +5,8 @@
             [schema.coerce :as coerce]
             [muse.core :as muse]
             [taoensso.timbre :as log]
-            [galapagos.schema :as schema])
+            [galapagos.schema :as schema]
+            [galapagos.introspection :as introspection])
   (:refer-clojure :exclude [compile]))
 
 ;; ## Core
@@ -345,6 +346,7 @@
         graph (compile root query)]
     (muse/run! (traverse graph))))
 
+
 (defn execute!!
   "Blocking execution. See execute! for the non-blocking version.
 
@@ -354,4 +356,17 @@
       \"{ post(id: 1) { title } }\"))"
   [& args]
   (async/<!! (apply execute! args)))
+
+(defn create-schema
+  "Handles any pre-processing of the schema, such as building a map of types for introspection."
+  [root]
+  (let [type-map (introspection/type-map root)]
+    {:root
+     (-> root
+         (assoc-in [:fields :__type :type] (assoc introspection/FindType :solve (introspection/solve-type-by-name type-map)))
+         ;(assoc-in [:fields :__schema :type] (assoc introspection/FindSchema :solve (introspection/solve-schema type-map)))
+
+         ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
+         (assoc-in [:fields :type :type] (assoc introspection/FindObjectType :solve (introspection/solve-type-by-object type-map))))}))
+
 

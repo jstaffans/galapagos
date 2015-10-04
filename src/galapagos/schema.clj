@@ -1,6 +1,5 @@
 (ns galapagos.schema
   (:require [galapagos.schema.helpers :as helpers]
-            [galapagos.introspection :as introspection]
             [schema.core :as s]
             [clojure.core.async :as async]
             [medley.core :refer [map-vals]]
@@ -132,14 +131,6 @@
            {:args ~args-with-metadata :returns ~returns :fields (:fields ~type) :type '~type :type-definition ~type :arity ~arity})))
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
-(defn- field-args
-  "Gets the arguments map of a field. The arguments map may be defined in a referenced var."
-  [f]
-  (let [t (:type f)]
-    (if (symbol? t)
-      (-> t symbol find-var deref :args)
-      (:args t))))
-
 (defmacro defroot
   [name r]
   (let [field-map (helpers/to-field-map (:fields r))
@@ -161,118 +152,5 @@
   [args]
   (:__OBJ args))
 
-
-;; ### Introspection types
-
-(defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :LIST :NON_NULL)
-
-(deftype TypeDescription []
-  ;; TODO: missing fields (see spec)
-  {:fields [:name        GraphQLString
-            :kind        TypeKind
-            :description GraphQLString
-            :fields      'galapagos.schema/FindFields]})
-
-(deftype FieldDescription []
-  ;; There is obviously a :type field missing. This is handled by a root query field
-  ;; that knows how to get the type of a field. It's done this way because the solve
-  ;; function is only available at runtime, after the type map has been built.
-  ;; TODO: other missing fields (see spec)
-  {:fields [:name   GraphQLString
-            :args   'galapagos.schema/FindArgs
-            :fields 'galapagos.schema/FindFields]})
-
-(deftype InputValueDescription []
-  {:fields [:name        GraphQLString
-            :description GraphQLString]})
-
-;; Skeleton field for finding a type. We can't solve anything before the type map
-;; has been created, which is done in the `create-schema` function below. The `solve`
-;; function is therefore added once the type map is available.
-(deffield FindType :- TypeDescription
-  {:description "Finds a type by name"
-   :args        [:name GraphQLString :!]})
-
-;; Likewise a skeleton field to which a `solve` method is associated once the
-;; type map is known.
-(deffield FindObjectType :- TypeDescription
-  {:description "Finds the type of an object. For internal use only."
-   :args        []})
-
-(deffield FindFields :- [FieldDescription]
-  {:description "Finds the fields belonging to a type"
-   ;; TODO: :includeDeprecated doesn't actually do anything at the moment
-   :args        [:includeDeprecated GraphQLBoolean]
-   :solve       (fn [args]
-                  (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
-                  (let [type-desc (parent-obj args)
-                        type-definition (:type-definition (meta type-desc))]
-                    (async/go
-                      (mapv
-                        (fn [[name f]]
-                          (let [metadata (assoc
-                                           (:introspection (or (meta f) (meta (find-var (:var f)))))
-                                           :args (field-args f))]
-                            (with-meta
-                              (->FieldDescription {:name name})
-                              {:introspection metadata})))
-                        (:fields type-definition)))))})
-
-(deffield FindArgs :- [InputValueDescription]
-  {:description "Finds the arguments of a field"
-   :args        []
-   :solve       (fn [args]
-                  (let [field-desc (get args :__OBJ)
-                        args (-> field-desc meta :introspection :args)]
-                    (async/go
-                      (mapv
-                        (fn [[name arg-meta]]
-                          (with-meta
-                            (->InputValueDescription
-                              {:name         name
-                               :description  "TODO: input value descriptions"
-                               :defaultValue "TODO: default values"})
-                            (meta arg-meta)))
-                        args))))})
-
-
-(defn- build-type-description
-  "Builds a TypeDescription from information gathered from type map."
-  [type-definition]
-  (with-meta
-    (->TypeDescription
-      {:name        (:__name type-definition)
-       :kind        (:__kind type-definition)
-       :description (:description type-definition)})
-    {:type-definition type-definition}))
-
-(defn- solve-type-by-name
-  "Solves to a type defined in a type map. See the `galapagos.introspection` namespace
-  for the functions that handle building the type map."
-  [type-map]
-  (fn [{:keys [name]}]
-    (let [type-definition (get type-map (keyword name))]
-      (async/go (build-type-description type-definition)))))
-
-
-(defn- solve-type-by-object
-  "Determines the type of an object. Solves to a type defined in a type map.
-  See the `galapagos.introspection` namespace for the functions that handle building the type map."
-  [type-map]
-  (fn [args]
-    (let [obj-desc (first (vals args))
-          type-definition (get type-map (-> obj-desc meta :introspection :name))]
-      (async/go (build-type-description type-definition)))))
-
-(defn create-schema
-  "Handles any pre-processing of the schema, such as building a map of types for introspection."
-  [root]
-  (let [type-map (introspection/type-map root)]
-    {:root
-     (-> root
-         (assoc-in [:fields :__type :type] (assoc FindType :solve (solve-type-by-name type-map)))
-
-         ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
-         (assoc-in [:fields :type :type] (assoc FindObjectType :solve (solve-type-by-object type-map))))}))
 
 

@@ -3,11 +3,10 @@
             [juxt.iota :refer [given]]
             [galapagos.introspection :as introspection]
             [galapagos.test-schemas.blog :refer [QueryRoot]]
-            [galapagos.schema :as schema]
             [galapagos.core :as core]))
 
 (def blog-schema
-  (schema/create-schema QueryRoot))
+  (core/create-schema QueryRoot))
 
 (deftest introspection-test
 
