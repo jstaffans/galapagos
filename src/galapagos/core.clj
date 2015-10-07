@@ -269,6 +269,7 @@
                           (compile root field fragments query)))
                   (collect-fields query fragments))
          type (:type node)]
+
      (if (= root type)
        (->SolvableRoot node fields)
 
@@ -364,9 +365,11 @@
     {:root
      (-> root
          (assoc-in [:fields :__type :type] (assoc introspection/FindType :solve (introspection/solve-type-by-name type-map)))
-         ;(assoc-in [:fields :__schema :type] (assoc introspection/FindSchema :solve (introspection/solve-schema type-map)))
+         (assoc-in [:fields :__schema :type] (assoc introspection/FindSchema :solve (introspection/solve-schema root)))
 
-         ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client
-         (assoc-in [:fields :type :type] (assoc introspection/FindObjectType :solve (introspection/solve-type-by-object type-map))))}))
+         ;; TODO: only the "real" introspection fields (e.g. __type) should be available to the client.
+         ;; These are here because here, they can conveniently be found by the introspection fields.
+         (assoc-in [:fields :type :type] (assoc introspection/FindObjectType :solve (introspection/solve-type-by-object type-map)))
+         (assoc-in [:fields :types :type] (assoc introspection/FindTypes :solve (introspection/solve-types type-map))))}))
 
 

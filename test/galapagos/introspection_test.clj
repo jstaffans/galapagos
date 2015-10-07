@@ -49,4 +49,18 @@
         "{ __type(name: Author) { fields { args { name, type { name } } } } }")
       :data := {:__type {:fields [{:args []} {:args []} {:args [{:type {:name :String}, :name :size}]}]}}))
 
-  )
+  (testing "Schema introspection"
+    (given
+      (core/execute!! blog-schema
+        "{ __schema { types { name } } }")
+      :data := {:__schema
+                {:types
+                 [{:name :Post}
+                  {:name :Blogger}
+                  {:name :Author}
+                  {:name :String}
+                  {:name :Int}
+                  {:name :PublishingDate}
+                  {:name :PreferredEditor}
+                  {:name :Float}
+                  {:name :BlogUser}]}})))

@@ -11,28 +11,41 @@
 
 
 ;; ### Introspection types
+;;
+;; Galapagos eats its own dog food - introspection is defined as GraphQL types.
 
 (schema/defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :LIST :NON_NULL)
 
 (schema/deftype TypeDescription []
   ;; TODO: missing fields (see spec)
-  {:fields [:name        schema/GraphQLString
-            :kind        TypeKind
+  {:fields [:name schema/GraphQLString
+            :kind TypeKind
             :description schema/GraphQLString
-            :fields      'galapagos.introspection/FindFields]})
+            :fields 'galapagos.introspection/FindFields]})
+
+(schema/deftype SchemaDescription []
+  ;; There is obviously a :types field missing. This is handled by a root query field
+  ;; that knows how to get the types of a schema. It's done this way because the solve
+  ;; function is only available at runtime, after the type map has been built.
+  {:fields [:queryType TypeDescription :!
+            ;; TODO: directives
+            ]})
 
 (schema/deftype FieldDescription []
-  ;; There is obviously a :type field missing. This is handled by a root query field
-  ;; that knows how to get the type of a field. It's done this way because the solve
-  ;; function is only available at runtime, after the type map has been built.
+  ;; As above, a :type field is missing. That information is only available at runtime.
   ;; TODO: other missing fields (see spec)
-  {:fields [:name   schema/GraphQLString
-            :args   'galapagos.introspection/FindArgs
+  {:fields [:name schema/GraphQLString
+            :args 'galapagos.introspection/FindArgs
             :fields 'galapagos.introspection/FindFields]})
 
 (schema/deftype InputValueDescription []
-  {:fields [:name        schema/GraphQLString
+  {:fields [:name schema/GraphQLString
             :description schema/GraphQLString]})
+
+
+(schema/deffield FindSchema :- SchemaDescription
+  {:description "Finds the schema"
+   :args        []})
 
 ;; Skeleton field for finding a type. We can't solve anything before the type map
 ;; has been created, which is done in the `create-schema` function below. The `solve`
@@ -45,6 +58,11 @@
 ;; type map is known.
 (schema/deffield FindObjectType :- TypeDescription
   {:description "Finds the type of an object. For internal use only."
+   :args        []})
+
+;; Also a skeleton which depends on a type map.
+(schema/deffield FindTypes :- [TypeDescription]
+  {:description "Finds all types belonging to a schema"
    :args        []})
 
 
@@ -94,8 +112,16 @@
                         args))))})
 
 
+(defn- build-type-definition
+  "Creates a type definition map according to an internal format that is
+  used by different introspection functions."
+  [type metadata]
+  (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
+    (assoc type :__name type-name :description desc :__kind kind)))
+
+
 (defn- build-type-description
-  "Builds a TypeDescription from information gathered from type map."
+  "Builds a TypeDescription from information gathered from type definition map."
   [type-definition]
   (with-meta
     (->TypeDescription
@@ -111,26 +137,54 @@
   [type-map]
   (fn [{:keys [name]}]
     (let [type-definition (get type-map (keyword name))]
-      (async/go (build-type-description type-definition)))))
+      (if (nil? type-definition)
+        (do
+          (log/error "No definition for type" (keyword name) "found in type map!")
+          (throw (IllegalArgumentException.)))
+        (async/go (build-type-description type-definition))))))
 
+
+(defn- first-arg-value
+  [args]
+  (first (vals args)))
 
 (defn solve-type-by-object
   "Determines the type of an object. Solves to a type defined in a type map.
   See the `galapagos.introspection` namespace for the functions that handle building the type map."
   [type-map]
   (fn [args]
-    (let [obj-desc (first (vals args))
-          type-definition (get type-map (-> obj-desc meta :introspection :name))]
-      (async/go (build-type-description type-definition)))))
+    (let [obj-desc (first-arg-value args)
+          obj-name (-> obj-desc meta :introspection :name)
+          type-definition (get type-map obj-name)]
+      (if (nil? type-definition)
+        (do
+          (log/error "No definition for type" obj-name "found in type map!")
+          (throw (IllegalArgumentException.)))
+        (async/go (build-type-description type-definition))))))
+
+(defn solve-schema
+  "Solves to the a description of the schema's types and queryType. The list of
+  types is provided by the solve-types function."
+  [root]
+  (fn [_]
+    (let [metadata (-> (meta root) :introspection)]
+      (async/go
+        (->SchemaDescription
+          {:queryType (build-type-description (build-type-definition root metadata))})))))
+
+(defn solve-types
+  "Solves to a list of all types available in a schema."
+  [type-map]
+  (fn [_]
+    (async/go
+      (mapv build-type-description (vals type-map)))))
 
 
 (defn- register-type!
   "Stateful registration of a type. Besides normal information such as the description
   and the field map, we also register introspection metadata such as the *kind* of type."
   [types & {:keys [type metadata]}]
-  (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
-    (swap! types #(assoc % type-name (assoc type :__name type-name :description desc :__kind kind)))))
-
+  (swap! types #(assoc % (:name metadata) (build-type-definition type metadata))))
 
 (defn- walk-fields!
   "Recursively walks the fields of a type and registers any types found. It may happen
@@ -141,7 +195,8 @@
   (doseq [[_ field] (:fields node)]
     (let [type (if (coll? (:type field)) (:type field) {})
           metadata (:introspection (or (meta field) (meta type)))]
-      (register-type! types :type type :metadata (or (:of-type metadata) metadata))))
+      (when (and type metadata)
+        (register-type! types :type type :metadata (or (:of-type metadata) metadata)))))
   (doseq [[_ {:keys [type]}] (:fields node)]
     (walk-fields! type types)))
 

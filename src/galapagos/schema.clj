@@ -88,7 +88,8 @@
   (let [field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
 
-    ;; TODO: only place where metadata is not attached to the var itself. Change it to be uniform!
+    ;; TODO: this and the root are the only places where metadata is not attached to the var itself.
+    ;; Refactor it to be uniform!
     `(def ~name
        (with-meta
          (merge ~t {:fields ~fields-with-metadata})
@@ -132,10 +133,14 @@
     (throw (IllegalArgumentException. (str "Unknown schema definition operator: " s)))))
 
 (defmacro defroot
+  "Defines the query root of the schema."
   [name r]
   (let [field-map (helpers/to-field-map (:fields r))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
-    `(def ~name (merge ~r {:fields ~fields-with-metadata}))))
+    `(def ~name
+       (with-meta
+         (merge ~r {:fields ~fields-with-metadata})
+         {:introspection {:name :QueryRoot :kind :OBJECT}}))))
 
 ;; ### Schema utilities
 
@@ -151,6 +156,4 @@
   "Gets the parent object from function arguments."
   [args]
   (:__OBJ args))
-
-
 
