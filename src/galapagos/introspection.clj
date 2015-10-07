@@ -24,11 +24,10 @@
             :fields 'galapagos.introspection/FindFields]})
 
 (schema/deftype SchemaDescription []
-  ;; There is obviously a :types field missing. This is handled by a root query field
-  ;; that knows how to get the types of a schema. It's done this way because the solve
-  ;; function is only available at runtime, after the type map has been built.
-  {:fields [:queryType TypeDescription :!
-            ;; TODO: directives
+  ;; There are obviously some fields missing: :types and :queryType. These are handled by root
+  ;; query fields that know how to get the types of a schema. It's done this way because the solve
+  ;; functions are only available at runtime, after the type map has been built.
+  {:fields [ ;; TODO: directives
             ]})
 
 (schema/deftype FieldDescription []
@@ -42,10 +41,10 @@
   {:fields [:name schema/GraphQLString
             :description schema/GraphQLString]})
 
-
 (schema/deffield FindSchema :- SchemaDescription
   {:description "Finds the schema"
-   :args        []})
+   :args        []
+   :solve       (fn [_] (async/go (->SchemaDescription {})))})
 
 ;; Skeleton field for finding a type. We can't solve anything before the type map
 ;; has been created, which is done in the `create-schema` function below. The `solve`
@@ -65,6 +64,10 @@
   {:description "Finds all types belonging to a schema"
    :args        []})
 
+;; Another skeleton
+(schema/deffield FindQueryType :- TypeDescription
+  {:description "Finds the query type of the schema"
+   :args        []})
 
 (defn- field-args
   "Gets the arguments map of a field. The arguments map may be defined in a referenced var."
@@ -162,15 +165,12 @@
           (throw (IllegalArgumentException.)))
         (async/go (build-type-description type-definition))))))
 
-(defn solve-schema
-  "Solves to the a description of the schema's types and queryType. The list of
-  types is provided by the solve-types function."
+(defn solve-query-type
   [root]
   (fn [_]
-    (let [metadata (-> (meta root) :introspection)]
-      (async/go
-        (->SchemaDescription
-          {:queryType (build-type-description (build-type-definition root metadata))})))))
+    (let [metadata (-> (meta root) :introspection)
+          type-desc (build-type-description (build-type-definition root metadata))]
+      (async/go type-desc))))
 
 (defn solve-types
   "Solves to a list of all types available in a schema."
