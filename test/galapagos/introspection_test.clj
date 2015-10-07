@@ -63,4 +63,17 @@
                   {:name :PublishingDate}
                   {:name :PreferredEditor}
                   {:name :Float}
-                  {:name :BlogUser}]}})))
+                  {:name :BlogUser}]}})
+    (given
+      (core/execute!! blog-schema
+        "{ __schema { queryType { fields { name, args { name } } } } }")
+      :data := {:__schema
+                {:queryType
+                 {:fields
+                  [{:args [{:name :id}], :name :post}
+                   {:args [], :name :posts}
+                   {:args [{:name :handles}], :name :bloggers}
+                   {:args [{:name :preferredEditor} {:name :rating}], :name :authors}
+                   {:args [], :name :hello}]}}})
+
+    ))
