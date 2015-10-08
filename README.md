@@ -23,8 +23,7 @@ Galapagos is still very much pre-alpha software and nearly everything is subject
 
 ### Schema definition
 
-The schema definition DSL is still a work-in-progress and a bit clunky in places. Prismatic's schema library is used
-for validation and coercion and I'd like to move Galapagos' DSL closer to that used in Prismatic/schema. 
+The schema definition DSL is still a work-in-progress and a bit clunky in places.
 
 ### Queries
 
