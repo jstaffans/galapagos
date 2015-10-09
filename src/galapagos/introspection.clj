@@ -21,13 +21,21 @@
   {:fields [:name schema/GraphQLString
             :kind TypeKind
             :description schema/GraphQLString
-            :fields 'galapagos.introspection/FindFields]})
+            :fields 'galapagos.introspection/FindFields
+
+            ;; TODO
+            :enumValues 'galapagos.introspection/FindEmptyList
+            :inputFields 'galapagos.introspection/FindEmptyList
+            :possibleTypes 'galapagos.introspection/FindEmptyList
+            :interfaces 'galapagos.introspection/FindEmptyList
+            ]})
 
 (schema/deftype SchemaDescription []
   ;; There are obviously some fields missing: :types and :queryType. These are handled by root
   ;; query fields that know how to get the types of a schema. It's done this way because the solve
   ;; functions are only available at runtime, after the type map has been built.
-  {:fields [ ;; TODO: directives
+  {:fields [;; TODO
+            :directives 'galapagos.introspection/FindEmptyList
             ]})
 
 (schema/deftype FieldDescription []
@@ -41,10 +49,21 @@
   {:fields [:name schema/GraphQLString
             :description schema/GraphQLString]})
 
+
 (schema/deffield FindSchema :- SchemaDescription
   {:description "Finds the schema"
    :args        []
    :solve       (fn [_] (async/go (->SchemaDescription {})))})
+
+
+(schema/defscalar NotImplementedYet nil)
+
+;; Placeholder for the things that are not yet implemented
+(schema/deffield FindEmptyList :- [NotImplementedYet]
+  {:description "Placeholder"
+   :args        []
+   :solve       (fn [_] (async/go []))})
+
 
 ;; Skeleton field for finding a type. We can't solve anything before the type map
 ;; has been created, which is done in the `create-schema` function below. The `solve`
