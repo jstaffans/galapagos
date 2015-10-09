@@ -1,52 +1,76 @@
-query IntrospectionQuery {
-  __schema {
-    queryType { name }
-    mutationType { name }
-    types {
-      ...FullType
+  query IntrospectionQuery {
+    __schema {
+      queryType { name }
+      mutationType { name }
+      types {
+        ...FullType
+      }
+      directives {
+        name
+        description
+        args {
+          ...InputValue
+        }
+        onOperation
+        onFragment
+        onField
+      }
     }
-    directives {
+  }
+
+  fragment FullType on __Type {
+    kind
+    name
+    description
+    fields {
       name
       description
       args {
         ...InputValue
       }
-      onOperation
-      onFragment
-      onField
+      type {
+        ...TypeRef
+      }
+      isDeprecated
+      deprecationReason
     }
-  }
-}
-
-fragment FullType on __Type {
-  kind
-  name
-  description
-  fields {
-    name
-    description
-    args {
+    inputFields {
       ...InputValue
     }
-    type {
+    interfaces {
       ...TypeRef
     }
-    isDeprecated
-    deprecationReason
+    enumValues {
+      name
+      description
+      isDeprecated
+      deprecationReason
+    }
+    possibleTypes {
+      ...TypeRef
+    }
   }
-  inputFields {
-    ...InputValue
-  }
-  interfaces {
-    ...TypeRef
-  }
-  enumValues {
+
+  fragment InputValue on __InputValue {
     name
     description
-    isDeprecated
-    deprecationReason
+    type { ...TypeRef }
+    defaultValue
   }
-  possibleTypes {
-    ...TypeRef
+
+  fragment TypeRef on __Type {
+    kind
+    name
+    ofType {
+      kind
+      name
+      ofType {
+        kind
+        name
+        ofType {
+          kind
+          name
+        }
+      }
+    }
   }
-}
