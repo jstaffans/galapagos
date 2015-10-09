@@ -253,7 +253,10 @@
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
       :type interface
-      :metadata (:introspection (meta interface)))))
+      :metadata (:introspection (meta interface))))
+
+  (register-type! types :type {} :metadata {:name :Non-Null :kind :NON_NULL})
+  (register-type! types :type {} :metadata {:name :List :kind :LIST}))
 
 
 (defn type-map
