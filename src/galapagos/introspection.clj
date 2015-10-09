@@ -30,11 +30,23 @@
             :interfaces 'galapagos.introspection/FindEmptyList
             ]})
 
+(schema/defscalar UnknownValue nil)
+
+(schema/definterface NotImplementedYet
+  {:fields [:name UnknownValue
+            :description UnknownValue
+            :args UnknownValue
+            :onOperation UnknownValue
+            :onFragment UnknownValue
+            :onField UnknownValue
+            ]})
+
 (schema/deftype SchemaDescription []
   ;; There are obviously some fields missing: :types and :queryType. These are handled by root
   ;; query fields that know how to get the types of a schema. It's done this way because the solve
   ;; functions are only available at runtime, after the type map has been built.
   {:fields [;; TODO
+            :mutationType 'galapagos.introspection/FindEmpty
             :directives 'galapagos.introspection/FindEmptyList
             ]})
 
@@ -43,12 +55,19 @@
   ;; TODO: other missing fields (see spec)
   {:fields [:name schema/GraphQLString
             :args 'galapagos.introspection/FindArgs
-            :fields 'galapagos.introspection/FindFields]})
+            :fields 'galapagos.introspection/FindFields
+
+            ;; TODO
+            :isDeprecated 'schema/GraphQLBoolean
+            :deprecationReason 'schema/GraphQLString]})
 
 (schema/deftype InputValueDescription []
   {:fields [:name schema/GraphQLString
             :description schema/GraphQLString]})
 
+
+(schema/deftype DirectiveDescription []
+  {:fields [:name schema/GraphQLString]})
 
 (schema/deffield FindSchema :- SchemaDescription
   {:description "Finds the schema"
@@ -56,9 +75,12 @@
    :solve       (fn [_] (async/go (->SchemaDescription {})))})
 
 
-(schema/defscalar NotImplementedYet nil)
+;; Placeholders for the things that are not yet implemented
+(schema/deffield FindEmpty :- NotImplementedYet
+  {:description "Placeholder"
+   :args        []
+   :solve       (fn [_] (async/go {}))})
 
-;; Placeholder for the things that are not yet implemented
 (schema/deffield FindEmptyList :- [NotImplementedYet]
   {:description "Placeholder"
    :args        []
@@ -112,7 +134,8 @@
                                            (:introspection (or (meta f) (meta (find-var (:var f)))))
                                            :args (field-args f))]
                             (with-meta
-                              (->FieldDescription {:name name})
+                              (->FieldDescription
+                                {:name name :isDeprecated false :deprecationReason ""})
                               {:introspection metadata})))
                         (:fields type-definition)))))})
 
@@ -226,6 +249,7 @@
   (walk-fields! root types)
 
   ;; Register interfaces using the top-level map
+  ;; TODO: get rid of this
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
       :type interface

@@ -38,8 +38,8 @@
       (core/execute!! blog-schema
         "{ __type(name: Post) { fields { name, type { name, kind } } } }")
       :data := {:__type {:fields
-                         [{:name :id, :type {:name :Int, :kind :SCALAR}}
-                          {:name :title, :type {:name :String, :kind :SCALAR}}
+                         [{:name :id, :type {:name :Non-Null, :kind :NON_NULL}}
+                          {:name :title, :type {:name :Non-Null, :kind :NON_NULL}}
                           {:name :date, :type {:name :PublishingDate, :kind :SCALAR}}
                           {:name :author, :type {:name :Author, :kind :OBJECT}}]}}))
 
@@ -53,17 +53,17 @@
     (given
       (core/execute!! blog-schema
         "{ __schema { types { name } } }")
-      :data := {:__schema
-                {:types
-                 [{:name :Post}
-                  {:name :Blogger}
-                  {:name :Author}
-                  {:name :String}
-                  {:name :Int}
-                  {:name :PublishingDate}
-                  {:name :PreferredEditor}
-                  {:name :Float}
-                  {:name :BlogUser}]}})
+      (comp set :types :__schema :data) := #{{:name :Post}
+                                             {:name :Blogger}
+                                             {:name :Author}
+                                             {:name :String}
+                                             {:name :Int}
+                                             {:name :PublishingDate}
+                                             {:name :PreferredEditor}
+                                             {:name :Float}
+                                             {:name :BlogUser}
+                                             {:name :Non-Null}
+                                             {:name :List}})
     (given
       (core/execute!! blog-schema
         "{ __schema { queryType { fields { name, args { name } } } } }")
