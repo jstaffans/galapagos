@@ -15,7 +15,7 @@
 ;; an `IllegalArgumentException` is thrown.
 
 (def parser
-  (insta/parser "ROOT = INTRO? SELECTION <whitespace> FRAGMENTS? <whitespace>
+  (insta/parser "ROOT = <whitespace> INTRO? SELECTION <whitespace> FRAGMENTS? <whitespace>
                  INTRO = OP <whitespace> NAME <whitespace> (VARS)?
                  OP = 'query' | 'mutation'
                  NAME = token
