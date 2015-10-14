@@ -152,8 +152,12 @@
         kind (:kind metadata)]
     (or (kind-scalar? kind) (and (= :NON_NULL kind) (kind-scalar? (:kind (:of-type metadata)))))))
 
-(defn parent-obj
-  "Gets the parent object from function arguments."
+(defn recursive?
+  [node]
+  (nil? (-> node :type :arity)))
+
+(defn it
+  "Gets the parent instance from function arguments."
   [args]
   (:__OBJ args))
 

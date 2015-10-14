@@ -16,19 +16,22 @@
 
 (schema/defenum TypeKind :SCALAR :OBJECT :INTERFACE :UNION :ENUM :INPUT_OBJECT :LIST :NON_NULL)
 
-(schema/deftype TypeDescription []
+(declare FindFields FindEmpty FindEmptyList FindArgs FindFields)
+
+(schema/deftype TypeDescription [TypeInterface]
   ;; TODO: missing fields (see spec)
   {:fields [:name schema/GraphQLString
             :kind TypeKind
             :description schema/GraphQLString
-            :fields 'galapagos.introspection/FindFields
+            :fields #'FindFields
+
+            :ofType #'TypeDescription
 
             ;; TODO
-            :enumValues 'galapagos.introspection/FindEmptyList
-            :inputFields 'galapagos.introspection/FindEmptyList
-            :possibleTypes 'galapagos.introspection/FindEmptyList
-            :interfaces 'galapagos.introspection/FindEmptyList
-            ]})
+            :enumValues #'FindEmptyList
+            :inputFields #'FindEmptyList
+            :possibleTypes #'FindEmptyList
+            :interfaces #'FindEmptyList]})
 
 (schema/defscalar UnknownValue nil)
 
@@ -46,20 +49,20 @@
   ;; query fields that know how to get the types of a schema. It's done this way because the solve
   ;; functions are only available at runtime, after the type map has been built.
   {:fields [;; TODO
-            :mutationType 'galapagos.introspection/FindEmpty
-            :directives 'galapagos.introspection/FindEmptyList
+            :mutationType #'FindEmpty
+            :directives #'FindEmptyList
             ]})
 
 (schema/deftype FieldDescription []
   ;; As above, a :type field is missing. That information is only available at runtime.
   ;; TODO: other missing fields (see spec)
   {:fields [:name schema/GraphQLString
-            :args 'galapagos.introspection/FindArgs
-            :fields 'galapagos.introspection/FindFields
+            :args #'FindArgs
+            :fields #'FindFields
 
             ;; TODO
-            :isDeprecated 'schema/GraphQLBoolean
-            :deprecationReason 'schema/GraphQLString]})
+            :isDeprecated schema/GraphQLBoolean
+            :deprecationReason schema/GraphQLString]})
 
 (schema/deftype InputValueDescription []
   {:fields [:name schema/GraphQLString
@@ -114,9 +117,7 @@
   "Gets the arguments map of a field. The arguments map may be defined in a referenced var."
   [f]
   (let [t (:type f)]
-    (if (symbol? t)
-      (-> t symbol find-var deref :args)
-      (:args t))))
+    (:args (if (var? t) (deref t) t))))
 
 
 (schema/deffield FindFields :- [FieldDescription]
@@ -125,13 +126,13 @@
    :args        [:includeDeprecated schema/GraphQLBoolean]
    :solve       (fn [args]
                   (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
-                  (let [type-desc (schema/parent-obj args)
+                  (let [type-desc (schema/it args)
                         type-definition (:type-definition (meta type-desc))]
                     (async/go
                       (mapv
                         (fn [[name f]]
                           (let [metadata (assoc
-                                           (:introspection (or (meta f) (meta (find-var (:var f)))))
+                                           (:introspection (or (meta f) (meta (:var f))))
                                            :args (field-args f))]
                             (with-meta
                               (->FieldDescription
@@ -143,7 +144,7 @@
   {:description "Finds the arguments of a field"
    :args        []
    :solve       (fn [args]
-                  (let [field-desc (get args :__OBJ)
+                  (let [field-desc (schema/it args)
                         args (-> field-desc meta :introspection :args)]
                     (async/go
                       (mapv
@@ -168,12 +169,16 @@
 (defn- build-type-description
   "Builds a TypeDescription from information gathered from type definition map."
   [type-definition]
-  (with-meta
-    (->TypeDescription
-      {:name        (:__name type-definition)
-       :kind        (:__kind type-definition)
-       :description (:description type-definition)})
-    {:type-definition type-definition}))
+
+  ;; TODO: how to get inner type of NON_NULL ?
+  (let [of-type (when (= (:__kind type-definition) :NON_NULL) (->TypeDescription {:name :String :kind :SCALAR}))]
+    (with-meta
+      (->TypeDescription
+        {:name        (:__name type-definition)
+         :kind        (:__kind type-definition)
+         :description (:description type-definition)
+         :ofType      of-type})
+      {:type-definition type-definition})))
 
 
 (defn solve-type-by-name
@@ -183,9 +188,7 @@
   (fn [{:keys [name]}]
     (let [type-definition (get type-map (keyword name))]
       (if (nil? type-definition)
-        (do
-          (log/error "No definition for type" (keyword name) "found in type map!")
-          (throw (IllegalArgumentException.)))
+        (throw (IllegalArgumentException. "No definition found in type map"))
         (async/go (build-type-description type-definition))))))
 
 
@@ -202,9 +205,7 @@
           obj-name (-> obj-desc meta :introspection :name)
           type-definition (get type-map obj-name)]
       (if (nil? type-definition)
-        (do
-          (log/error "No definition for type" obj-name "found in type map!")
-          (throw (IllegalArgumentException.)))
+        (throw (IllegalArgumentException. "No definition found in type map"))
         (async/go (build-type-description type-definition))))))
 
 (defn solve-query-type

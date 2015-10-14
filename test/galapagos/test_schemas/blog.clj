@@ -5,11 +5,13 @@
 
 (schema/defenum PreferredEditor :VIM :EMACS :JOE)
 
+(declare FindFriends FindProfilePicture FindAuthor)
+
 (schema/definterface BlogUser
   {:fields [:id      schema/GraphQLString
             :name    schema/GraphQLString
             :handle  schema/GraphQLString
-            :friends 'galapagos.test-schemas.blog/FindFriends]})
+            :friends #'FindFriends]})
 
 (schema/deftype Commenter [BlogUser]
   {:fields [:numComments schema/GraphQLInt]})
@@ -18,13 +20,13 @@
   {:description "Returns the profile picture of the desired size."
    :args        [:size schema/GraphQLString]
    :solve       (fn [{:keys [size] :as args}]
-                  (async/go (str "url/for/id/" (:id (schema/parent-obj args)) "?size=" (or size "default"))))})
+                  (async/go (str "url/for/id/" (:id (schema/it args)) "?size=" (or size "default"))))})
 
 
 (schema/deftype Author [BlogUser]
   {:fields [:preferredEditor PreferredEditor :!
             :averageRating   schema/GraphQLFloat :!
-            :profilePicture  'galapagos.test-schemas.blog/FindProfilePicture]})
+            :profilePicture  #'FindProfilePicture]})
 
 (schema/deffield FindAuthor :- Author
   {:description "Finds the author of a post"
@@ -32,7 +34,7 @@
    :solve       (fn [args]
                   (async/go
                     (->Author {:id              123
-                               :name            (str "Author Of " (:title (schema/parent-obj args)))
+                               :name            (str "Author Of " (:title (schema/it args)))
                                :preferredEditor :VIM
                                :handle          (str "author-123")})))})
 
@@ -57,7 +59,7 @@
    :solve       (fn [{:keys [order] :as args}]
                   (async/go
                     [(->Author {:id   512
-                                :name (str "Friend Of " (:name (schema/parent-obj args)) " " order)})]))})
+                                :name (str "Friend Of " (:name (schema/it args)) " " order)})]))})
 
 
 (schema/defunion Blogger [Commenter Author])
@@ -69,7 +71,7 @@
    :fields      [:id     schema/GraphQLInt "The ID" :!
                  :title  schema/GraphQLString "The title" :!
                  :date   PublishingDate
-                 :author 'galapagos.test-schemas.blog/FindAuthor]})
+                 :author #'FindAuthor]})
 
 (schema/deffield FindBloggers :- [Blogger]
   {:description "Finds bloggers by handles"

@@ -74,6 +74,15 @@
                    {:args [], :name :posts}
                    {:args [{:name :handles}], :name :bloggers}
                    {:args [{:name :preferredEditor} {:name :rating}], :name :authors}
-                   {:args [], :name :hello}]}}})
+                   {:args [], :name :hello}]}}}))
 
-    ))
+  (testing "Of type"
+    (given
+      (core/execute!! blog-schema
+        "{ __type(name: Author) { fields { type { ofType { name } } } } }")
+
+
+      )
+    )
+
+  )

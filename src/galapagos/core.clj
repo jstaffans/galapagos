@@ -61,8 +61,8 @@
         coerced (coercer args)]
     (if-let [error-val (schema.utils/error-val coerced)]
       (do
-        (log/error (str "Could not coerce input argument at " (:name query) ":") error-val)
-        (throw (IllegalArgumentException.)))
+        (log/error error-val)
+        (throw (IllegalArgumentException. (str "Could not coerce input argument at " (:name query) ":"))))
       coerced)))
 
 ;; A GraphQL "object" node that resolves to other objects (more nodes)
@@ -197,7 +197,7 @@
 
 (defmethod field-definition-in-type :reference-to-field-var
   [type field]
-  (assoc {} :type (-> (get-in type [:fields field :var]) symbol find-var deref)))
+  (assoc {} :type (-> (get-in type [:fields field :var]) deref)))
 
 (defmethod field-definition-in-type :not-defined-in-node
   [_ _] nil)
@@ -221,9 +221,7 @@
                               (field-definition-in-type (-> interface find-var deref) (:name query)))
                             (-> (:type node) :type-definition :interface-definitions))))]
     field
-    (do
-      (log/error "Could not find definition for field" (:name query))
-      (throw (IllegalStateException.)))))
+    (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
 (defn- inline-fragment?
   "Checks if a fragment is defined in-line or separately. If it's defined
@@ -274,9 +272,10 @@
        (->SolvableRoot node fields)
 
        (cond
-         (returns-scalar? node) (->SolvableRawField type query [type])
-         (schema/scalar? node) (->SolvableLookupField [type] [query])
-         :else (->SolvableNode type query (merge-children fields)))))))
+         (returns-scalar? node)   (->SolvableRawField type query [type])
+         (schema/scalar? node)    (->SolvableLookupField [type] [query])
+         (schema/recursive? node) (->SolvableLookupField [type] [query])
+         :else                    (->SolvableNode type query (merge-children fields)))))))
 
 (declare traverse)
 
