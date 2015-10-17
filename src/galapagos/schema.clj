@@ -1,9 +1,7 @@
 (ns galapagos.schema
   (:require [galapagos.schema.helpers :as helpers]
             [schema.core :as s]
-            [clojure.core.async :as async]
-            [medley.core :refer [map-vals]]
-            [taoensso.timbre :as log])
+            [medley.core :refer [map-vals]])
   (:refer-clojure :exclude [deftype definterface]))
 
 ;; ## Schema
