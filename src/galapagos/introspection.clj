@@ -19,7 +19,6 @@
 (declare FindFields FindEmpty FindEmptyList FindArgs FindFields)
 
 (schema/deftype TypeDescription [TypeInterface]
-  ;; TODO: missing fields (see spec)
   {:fields [:name schema/GraphQLString
             :kind TypeKind
             :description schema/GraphQLString
@@ -136,7 +135,6 @@
                           (let [metadata (assoc
                                            (:introspection (or (meta f) (meta (:var f))))
                                            :args (field-args f))]
-                            (println metadata)
                             (with-meta
                               (->FieldDescription
                                 {:name name
