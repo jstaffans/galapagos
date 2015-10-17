@@ -65,23 +65,24 @@
         (throw (IllegalArgumentException. (str "Could not coerce input argument at " (:name query) ":"))))
       coerced)))
 
+(defn assoc-it
+  [solution]
+  (util/apply-1 #(assoc {} :__OBJ %) solution))
+
 ;; A GraphQL "object" node that resolves to other objects (more nodes)
 ;; or fields (leaves).
 (defrecord SolvableNode [node query fields]
   Solvable
   (solve [_ value]
     ;; if we don't have arguments, solve using the parent value
-    (let [args (merge (coerced-args node query) value)]
+    (let [args (merge (coerced-args node query) value)
+          node-chan (async/chan 1 (map assoc-it))]
       (reify
         muse/DataSource
         (fetch [_]
           ;; modify the solution with a transducer that maps the solution
           ;; to a well-known key (:__OBJ) which makes access in child nodes easier.
-          (let [out-chan (async/chan 1
-                           (map
-                             (fn [solution]
-                               (util/apply-1 #(assoc {} :__OBJ %) solution))))]
-            (async/pipe ((:solve node) args) out-chan)))
+          (async/pipe ((:solve node) args) node-chan))
 
         muse/LabeledSource
         (resource-id [_] [args (resolve-name query)]))))
@@ -98,19 +99,23 @@
   (done? [_] false))
 
 
+(defn- key-applies?
+  "If keys have \"on\" metadata, it comes from a fragment and
+  we have to check that the value is of the correct type."
+  [key parent]
+  (let [key-meta (:on (meta key))
+        value-meta (:type (meta parent))]
+    (not (and key-meta value-meta (not= key-meta value-meta)))))
+
 ;; A leaf node that looks up keys in a parent map or record.
 (defrecord SolvableLookupField [fields key-names]
   Solvable
   (solve [_ parent]
-    (let [value (first (vals parent))
+    (let [value (schema/it parent)
           solution (reduce (fn [acc k]
-                             ;; if keys have "on" metadata, it comes from a fragment and
-                             ;; we have to check that the value is of the correct type
-                             (let [key-meta (:on (meta k))
-                                   value-meta (:type (meta value))]
-                               (if (and key-meta value-meta (not= key-meta value-meta))
-                                 acc
-                                 (assoc acc (:name k) (get value (:name k))))))
+                             (if (key-applies? k value)
+                               (assoc acc (:name k) (get value (:name k)))
+                               acc))
                      {} key-names)]
       (reify
         muse/DataSource
@@ -128,6 +133,31 @@
   (empty-node? [_] (empty? fields))
   (done? [_] true))
 
+
+
+;; A leaf node that looks up keys in a parent map or record.
+(defrecord SolvableRecursiveField [node query fields]
+  Solvable
+  (solve [_ parent]
+    (let [value (schema/it parent)
+          solution (if (key-applies? query value)
+                     (or (get value (:name query)) {})
+                     {})]
+      (reify
+        muse/DataSource
+        (fetch [_] (async/go (assoc-it solution)))
+
+        muse/LabeledSource
+        (resource-id [_] parent))))
+
+  ResultAccumulator
+  (acc-fn [_]
+    #(assoc {} (resolve-name query) %))
+
+  Visited
+  (arity [_] :one)
+  (empty-node? [_] (empty? fields))
+  (done? [_] false))
 
 ;; A leaf node that resolves directly to a value.
 (defrecord SolvableRawField [node query fields]
@@ -274,7 +304,7 @@
        (cond
          (returns-scalar? node)   (->SolvableRawField type query [type])
          (schema/scalar? node)    (->SolvableLookupField [type] [query])
-         (schema/recursive? node) (->SolvableLookupField [type] [query])
+         (schema/recursive? node) (->SolvableRecursiveField type query (merge-children fields))
          :else                    (->SolvableNode type query (merge-children fields)))))))
 
 (declare traverse)
