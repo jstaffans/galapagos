@@ -112,11 +112,14 @@
   Solvable
   (solve [_ parent]
     (let [value (schema/it parent)
-          solution (reduce (fn [acc k]
-                             (if (key-applies? k value)
-                               (assoc acc (:name k) (get value (:name k)))
-                               acc))
-                     {} key-names)]
+          solution
+          (if (empty? value)
+            {}
+            (reduce (fn [acc k]
+                      (if (key-applies? k value)
+                        (assoc acc (:name k) (get value (:name k)))
+                        acc))
+              {} key-names))]
       (reify
         muse/DataSource
         (fetch [_] (async/go solution))
