@@ -61,7 +61,8 @@
                                              {:name :PublishingDate}
                                              {:name :PreferredEditor}
                                              {:name :Float}
-                                             {:name :BlogUser}})
+                                             {:name :BlogUser}
+                                             {:name :QueryRoot}})
     (given
       (core/execute!! blog-schema
         "{ __schema { queryType { fields { name, args { name } } } } }")

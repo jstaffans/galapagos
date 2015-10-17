@@ -261,6 +261,8 @@
   [root types]
   (walk-fields! root types)
 
+  (register-type! types :type root :metadata (:introspection (meta root)))
+
   ;; Register interfaces using the top-level map
   ;; TODO: get rid of this
   (doseq [interface (vals (:interfaces root))]
