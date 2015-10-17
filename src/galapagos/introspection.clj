@@ -40,7 +40,7 @@
             :description UnknownValue
             :isDeprecated UnknownValue
             :deprecationReason UnknownValue
-            :args UnknownValue
+            :args #'NotImplementedYet
             :onOperation UnknownValue
             :onFragment UnknownValue
             :onField UnknownValue
@@ -203,6 +203,10 @@
   [args]
   (first (vals args)))
 
+(def builtin-types
+  {:Non-Null {:__name :Non-Null :__kind :NON_NULL}
+   :List     {:__name :List :__kind :LIST}})
+
 (defn solve-type-by-object
   "Determines the type of an object. Solves to a type defined in a type map.
   See the `galapagos.introspection` namespace for the functions that handle building the type map."
@@ -211,9 +215,9 @@
     (let [obj-desc (first-arg-value args)
           obj-name (-> obj-desc meta :introspection :name)
           of-type  (-> obj-desc meta :introspection :of-type)
-          type-definition (get type-map obj-name)]
+          type-definition (or (get type-map obj-name) (get builtin-types obj-name))]
       (if (nil? type-definition)
-        (throw (IllegalArgumentException. (str "No definition found in type map for " obj-desc)))
+        (throw (IllegalArgumentException. (str "No definition found in type map for " obj-name)))
         (async/go (build-type-description type-definition of-type))))))
 
 (defn solve-query-type
@@ -262,11 +266,7 @@
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
       :type interface
-      :metadata (:introspection (meta interface))))
-
-  (register-type! types :type {} :metadata {:name :Non-Null :kind :NON_NULL})
-  (register-type! types :type {} :metadata {:name :List :kind :LIST}))
-
+      :metadata (:introspection (meta interface)))))
 
 (defn type-map
   "Returns a map of all types used in the given schema."
