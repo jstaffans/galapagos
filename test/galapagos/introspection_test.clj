@@ -79,10 +79,4 @@
   (testing "Of type"
     (given
       (core/execute!! blog-schema
-        "{ __type(name: Author) { fields { type { ofType { name } } } } }")
-
-
-      )
-    )
-
-  )
+        "{ __type(name: Author) { fields { type { ofType { name } } } } }"))))

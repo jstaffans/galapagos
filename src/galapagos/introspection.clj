@@ -122,8 +122,10 @@
 
 (schema/deffield FindFields :- [FieldDescription]
   {:description "Finds the fields belonging to a type"
+
    ;; TODO: :includeDeprecated doesn't actually do anything at the moment
    :args        [:includeDeprecated schema/GraphQLBoolean]
+
    :solve       (fn [args]
                   (when (:includeDeprecated args) (log/warn "Field deprecation not supported yet!"))
                   (let [type-desc (schema/it args)
@@ -134,9 +136,12 @@
                           (let [metadata (assoc
                                            (:introspection (or (meta f) (meta (:var f))))
                                            :args (field-args f))]
+                            (println metadata)
                             (with-meta
                               (->FieldDescription
-                                {:name name :isDeprecated false :deprecationReason ""})
+                                {:name name
+                                 :isDeprecated false
+                                 :deprecationReason ""})
                               {:introspection metadata})))
                         (:fields type-definition)))))})
 
@@ -168,17 +173,15 @@
 
 (defn- build-type-description
   "Builds a TypeDescription from information gathered from type definition map."
-  [type-definition]
-
-  ;; TODO: how to get inner type of NON_NULL ?
-  (let [of-type (when (= (:__kind type-definition) :NON_NULL) (->TypeDescription {:name :String :kind :SCALAR}))]
-    (with-meta
-      (->TypeDescription
-        {:name        (:__name type-definition)
-         :kind        (:__kind type-definition)
-         :description (:description type-definition)
-         :ofType      of-type})
-      {:type-definition type-definition})))
+  ([type-definition] (build-type-description type-definition nil))
+  ([type-definition of-type]
+   (with-meta
+     (->TypeDescription
+       {:name        (:__name type-definition)
+        :kind        (:__kind type-definition)
+        :description (:description type-definition)
+        :ofType      of-type})
+     {:type-definition type-definition})))
 
 
 (defn solve-type-by-name
@@ -203,10 +206,11 @@
   (fn [args]
     (let [obj-desc (first-arg-value args)
           obj-name (-> obj-desc meta :introspection :name)
+          of-type  (-> obj-desc meta :introspection :of-type)
           type-definition (get type-map obj-name)]
       (if (nil? type-definition)
         (throw (IllegalArgumentException. "No definition found in type map"))
-        (async/go (build-type-description type-definition))))))
+        (async/go (build-type-description type-definition of-type))))))
 
 (defn solve-query-type
   [root]
