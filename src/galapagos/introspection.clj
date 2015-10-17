@@ -22,9 +22,9 @@
   {:fields [:name schema/GraphQLString
             :kind TypeKind
             :description schema/GraphQLString
-            :fields #'FindFields
-
             :ofType #'TypeDescription
+
+            :fields #'FindFields
 
             ;; TODO
             :enumValues #'FindEmptyList
@@ -36,11 +36,16 @@
 
 (schema/definterface NotImplementedYet
   {:fields [:name UnknownValue
+            :kind UnknownValue
             :description UnknownValue
+            :isDeprecated UnknownValue
+            :deprecationReason UnknownValue
             :args UnknownValue
             :onOperation UnknownValue
             :onFragment UnknownValue
             :onField UnknownValue
+            :defaultValue UnknownValue
+            :ofType #'NotImplementedYet
             ]})
 
 (schema/deftype SchemaDescription []
@@ -54,8 +59,8 @@
 
 (schema/deftype FieldDescription []
   ;; As above, a :type field is missing. That information is only available at runtime.
-  ;; TODO: other missing fields (see spec)
   {:fields [:name schema/GraphQLString
+            :description schema/GraphQLString
             :args #'FindArgs
             :fields #'FindFields
 
@@ -65,7 +70,8 @@
 
 (schema/deftype InputValueDescription []
   {:fields [:name schema/GraphQLString
-            :description schema/GraphQLString]})
+            :description schema/GraphQLString
+            :defaultValue schema/GraphQLString]})
 
 
 (schema/deftype DirectiveDescription []
@@ -207,7 +213,7 @@
           of-type  (-> obj-desc meta :introspection :of-type)
           type-definition (get type-map obj-name)]
       (if (nil? type-definition)
-        (throw (IllegalArgumentException. "No definition found in type map"))
+        (throw (IllegalArgumentException. (str "No definition found in type map for " obj-desc)))
         (async/go (build-type-description type-definition of-type))))))
 
 (defn solve-query-type
