@@ -73,9 +73,22 @@
                    {:args [], :name :posts}
                    {:args [{:name :handles}], :name :bloggers}
                    {:args [{:name :preferredEditor} {:name :rating}], :name :authors}
-                   {:args [], :name :hello}]}}}))
+                   {:args [], :name :hello}]}}})
+
+    ;; Testing required vs. non-required fields - only :directives will be present
+    ;; because it is a required field.
+    (given
+      (core/execute!! blog-schema
+        "{ __schema { directives, mutationType { name } } }")
+      :data := {:__schema
+                {:directives []}}))
 
   (testing "Of type"
     (given
       (core/execute!! blog-schema
-        "{ __type(name: Author) { fields { type { ofType { name } } } } }"))))
+        "{ __type(name: Author) { fields { type { ofType { name } } } } }")
+      :data := {:__type
+                {:fields
+                 [{:type {:ofType {:name :PreferredEditor}}}
+                  {:type {:ofType {:name :Float}}}
+                  {:type {}}]}})))

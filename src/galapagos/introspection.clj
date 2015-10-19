@@ -54,8 +54,7 @@
   ;; functions are only available at runtime, after the type map has been built.
   {:fields [;; TODO
             :mutationType #'FindEmpty
-            :directives #'FindEmptyList
-            ]})
+            :directives #'FindEmptyList :!]})
 
 (schema/deftype FieldDescription []
   ;; As above, a :type field is missing. That information is only available at runtime.
