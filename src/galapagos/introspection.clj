@@ -27,10 +27,12 @@
             :fields #'FindFields
 
             ;; TODO
+            ;; which of these fields is required depends on the type kind
+            :interfaces #'FindEmptyList :! "A list of interfaces"
             :enumValues #'FindEmptyList
             :inputFields #'FindEmptyList
             :possibleTypes #'FindEmptyList
-            :interfaces #'FindEmptyList]})
+            ]})
 
 (schema/defscalar UnknownValue nil)
 
@@ -53,14 +55,14 @@
   ;; query fields that know how to get the types of a schema. It's done this way because the solve
   ;; functions are only available at runtime, after the type map has been built.
   {:fields [;; TODO
-            :mutationType #'FindEmpty
-            :directives #'FindEmptyList :!]})
+            :mutationType #'FindEmpty        "The mutation type - currently not supported"
+            :directives   #'FindEmptyList :! "A list of directives"]})
 
 (schema/deftype FieldDescription []
   ;; As above, a :type field is missing. That information is only available at runtime.
   {:fields [:name schema/GraphQLString
             :description schema/GraphQLString
-            :args #'FindArgs :!
+            :args #'FindArgs :! "Find the arguments of a field"
             :fields #'FindFields
 
             ;; TODO

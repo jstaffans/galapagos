@@ -68,8 +68,8 @@
 
 (schema/deftype Post []
   {:description "A blog post"
-   :fields      [:id     schema/GraphQLInt "The ID" :!
-                 :title  schema/GraphQLString "The title" :!
+   :fields      [:id     schema/GraphQLInt    :!  "The ID"
+                 :title  schema/GraphQLString :!  "The title"
                  :date   PublishingDate
                  :author #'FindAuthor]})
 
