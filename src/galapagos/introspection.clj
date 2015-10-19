@@ -61,7 +61,7 @@
   ;; As above, a :type field is missing. That information is only available at runtime.
   {:fields [:name schema/GraphQLString
             :description schema/GraphQLString
-            :args #'FindArgs
+            :args #'FindArgs :!
             :fields #'FindFields
 
             ;; TODO
