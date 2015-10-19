@@ -65,9 +65,26 @@
         (throw (IllegalArgumentException. (str "Could not coerce input argument at " (:name query) ":"))))
       coerced)))
 
-(defn assoc-it
+(defn- assoc-it
+  "Associate a solution with a well-known key for easier access in child nodes."
   [solution]
-  (util/apply-1 #(assoc {} :__OBJ %) solution))
+  (util/apply-1 #(assoc {} schema/it-key %) solution))
+
+(defn- empty-coll?
+  "Check if v, if a coll, is empty. Returns false if v is not a coll."
+  [v]
+  (and (coll? v) (empty? v)))
+
+(defn- filter-not-required
+  "Set non-required fields to be empty in the parent object."
+  [node result]
+  {:pre (map? result)}
+  (reduce-kv
+    (fn [acc k v]
+      (let [required? (get-in node [:fields k :required?])]
+        (if (and (false? required?) (or (nil? v) (empty-coll? v))) acc (assoc acc k v))))
+    {}
+    result))
 
 ;; A GraphQL "object" node that resolves to other objects (more nodes)
 ;; or fields (leaves).
@@ -91,7 +108,7 @@
   ResultAccumulator
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
-    #(assoc {} (resolve-name query) %))
+    #(assoc {} (resolve-name query) (util/apply-1 (partial filter-not-required node) %)))
 
   Visited
   (arity [_] (:arity node))
