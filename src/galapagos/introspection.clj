@@ -261,6 +261,7 @@
   [root types]
   (walk-fields! root types)
 
+  ;; Register the type of the query root
   (register-type! types :type root :metadata (:introspection (meta root)))
 
   ;; Register interfaces using the top-level map

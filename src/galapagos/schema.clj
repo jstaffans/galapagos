@@ -154,8 +154,10 @@
   [node]
   (nil? (-> node :type :arity)))
 
+(def it-key :__OBJ)
+
 (defn it
   "Gets the parent instance from function arguments."
   [args]
-  (:__OBJ args))
+  (get args it-key))
 
