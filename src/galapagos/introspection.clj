@@ -23,12 +23,11 @@
             :kind TypeKind
             :description schema/GraphQLString
             :ofType #'TypeDescription
-
             :fields #'FindFields
 
             ;; TODO
             ;; which of these fields is required depends on the type kind
-            :interfaces #'FindEmptyList :! "A list of interfaces"
+            :interfaces #'FindEmptyList :!
             :enumValues #'FindEmptyList
             :inputFields #'FindEmptyList
             :possibleTypes #'FindEmptyList
@@ -242,6 +241,13 @@
   [types & {:keys [type metadata]}]
   (swap! types #(assoc % (:name metadata) (build-type-definition type metadata))))
 
+(defn- field-type
+  [field]
+  (cond
+    (coll? (:type field)) (:type field)
+    (:var field) (-> (:var field) deref :type)
+    :else {}))
+
 (defn- walk-fields!
   "Recursively walks the fields of a type and registers any types found. It may happen
   that a type is registered multiple times, the previous registration then being overwritten.
@@ -249,7 +255,7 @@
   so the performance hit is negligible."
   [node types]
   (doseq [[_ field] (:fields node)]
-    (let [type (if (coll? (:type field)) (:type field) {})
+    (let [type (field-type field)
           metadata (:introspection (or (meta field) (meta type)))]
       (when (and type metadata)
         (register-type! types :type type :metadata (or (:of-type metadata) metadata)))))
@@ -269,7 +275,7 @@
   ;; TODO: get rid of this
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
-      :type interface
+      :type (deref interface)
       :metadata (:introspection (meta interface)))))
 
 (defn type-map

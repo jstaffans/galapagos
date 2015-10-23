@@ -86,12 +86,8 @@
   (let [field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
 
-    ;; TODO: this and the root are the only places where metadata is not attached to the var itself.
-    ;; Refactor it to be uniform!
-    `(def ~name
-       (with-meta
-         (merge ~t {:fields ~fields-with-metadata})
-         {:introspection ~(merge (extract-introspection-metadata name t) {:kind :INTERFACE})}))))
+    `(def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :INTERFACE}))
+      (merge ~t {:fields ~fields-with-metadata}))))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
@@ -136,6 +132,8 @@
   (let [field-map (helpers/to-field-map (:fields r))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(def ~name
+       ;; This is the only place where the metadata is attached to the value, not the var itself.
+       ;; It makes it easier to pass around the root (QueryRoot instead of #'QueryRoot).
        (with-meta
          (merge ~r {:fields ~fields-with-metadata})
          {:introspection {:name :QueryRoot :kind :OBJECT}}))))

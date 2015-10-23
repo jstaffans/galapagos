@@ -117,5 +117,5 @@
                  :hello FindHelloWorld]
 
    ;; TODO: add interface map as pre-processing step on schema creation.
-   :interfaces  {:BlogUser BlogUser}})
+   :interfaces  {:BlogUser #'BlogUser}})
 
