@@ -55,6 +55,7 @@
         "{ __schema { types { name } } }")
       (comp set :types :__schema :data) := #{{:name :Post}
                                              {:name :Blogger}
+                                             {:name :Commenter}
                                              {:name :Author}
                                              {:name :String}
                                              {:name :Int}

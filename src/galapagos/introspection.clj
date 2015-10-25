@@ -259,6 +259,7 @@
           metadata (:introspection (or (meta field) (meta type)))]
       (when (and type metadata)
         (register-type! types :type type :metadata (or (:of-type metadata) metadata)))))
+
   (doseq [[_ {:keys [type]}] (:fields node)]
     (walk-fields! type types)))
 
@@ -276,7 +277,14 @@
   (doseq [interface (vals (:interfaces root))]
     (register-type! types
       :type (deref interface)
-      :metadata (:introspection (meta interface)))))
+      :metadata (:introspection (meta interface))))
+
+  ;; Register implementations of interfaces
+  (doseq [[_ {:keys [possibleTypes]}] @types
+          t possibleTypes]
+    (register-type! types
+      :type (-> t symbol find-var deref)
+      :metadata (:introspection (meta (-> t symbol find-var))))))
 
 (defn type-map
   "Returns a map of all types used in the given schema."
