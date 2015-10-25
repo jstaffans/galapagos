@@ -266,10 +266,13 @@
                    (get-in root [:fields (:name query)])
 
                    ;; Check interfaces for field definition.
-                   (first (keep
-                            (fn [interface-var]
-                              (field-definition-in-type (deref interface-var) (:name query)))
-                            (-> (:type node) :type-definition :interfaces))))]
+                   (let [type-def (-> (:type node) :type-definition)
+                         interfaces (:interfaces type-def)
+                         possibles (map (comp find-var symbol) (:possibleTypes type-def))]
+                     (first (keep
+                              (fn [i-var]
+                                (field-definition-in-type (deref i-var) (:name query)))
+                              (concat interfaces possibles)))))]
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 
