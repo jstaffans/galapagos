@@ -172,7 +172,7 @@
   used by different introspection functions."
   [type metadata]
   (let [[type-name desc kind] ((juxt :name :description :kind) metadata)]
-    (assoc type :__name type-name :description desc :__kind kind)))
+    (assoc type :__name (keyword type-name) :description desc :__kind kind)))
 
 
 (defn- build-type-description
@@ -239,13 +239,13 @@
   "Stateful registration of a type. Besides normal information such as the description
   and the field map, we also register introspection metadata such as the *kind* of type."
   [types & {:keys [type metadata]}]
-  (swap! types #(assoc % (:name metadata) (build-type-definition type metadata))))
+  (swap! types #(assoc % (-> metadata :name keyword) (build-type-definition type metadata))))
 
 (defn- field-type
   [field]
   (cond
     (coll? (:type field)) (:type field)
-    (:var field) (-> (:var field) deref :type)
+    (:var field) (-> (:var field) deref :type-definition)
     :else {}))
 
 (defn- walk-fields!
@@ -257,8 +257,25 @@
   (doseq [[_ field] (:fields node)]
     (let [type (field-type field)
           metadata (:introspection (or (meta field) (meta type)))]
+
       (when (and type metadata)
-        (register-type! types :type type :metadata (or (:of-type metadata) metadata)))))
+        (register-type! types :type type :metadata (or (:of-type metadata) metadata)))
+
+      ;; Register interfaces
+      (doseq [i (-> type :interfaces)]
+        (register-type! types :type (deref i) :metadata (:introspection (meta i))))
+
+      ;; Register possible implementations of interfaces
+      (doseq [t (-> type :possibleTypes)]
+        (register-type! types
+          :type (-> t symbol find-var deref)
+          :metadata (-> t symbol find-var meta)))
+
+      ;; Register possible implementations of unions
+      (doseq [t (some-> type :type-definition :possibleTypes)]
+        (register-type! types
+          :type (-> t symbol find-var deref)
+          :metadata (-> t symbol find-var meta)))))
 
   (doseq [[_ {:keys [type]}] (:fields node)]
     (walk-fields! type types)))
@@ -270,21 +287,7 @@
   (walk-fields! root types)
 
   ;; Register the type of the query root
-  (register-type! types :type root :metadata (:introspection (meta root)))
-
-  ;; Register interfaces using the top-level map
-  ;; TODO: get rid of this
-  (doseq [interface (vals (:interfaces root))]
-    (register-type! types
-      :type (deref interface)
-      :metadata (:introspection (meta interface))))
-
-  ;; Register implementations of interfaces
-  (doseq [[_ {:keys [possibleTypes]}] @types
-          t possibleTypes]
-    (register-type! types
-      :type (-> t symbol find-var deref)
-      :metadata (:introspection (meta (-> t symbol find-var))))))
+  (register-type! types :type root :metadata (:introspection (meta root))))
 
 (defn type-map
   "Returns a map of all types used in the given schema."

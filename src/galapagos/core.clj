@@ -267,9 +267,9 @@
 
                    ;; Check interfaces for field definition.
                    (first (keep
-                            (fn [interface]
-                              (field-definition-in-type (-> interface find-var deref) (:name query)))
-                            (-> (:type node) :type-definition :interface-definitions))))]
+                            (fn [interface-var]
+                              (field-definition-in-type (deref interface-var) (:name query)))
+                            (-> (:type node) :type-definition :interfaces))))]
     field
     (throw (IllegalStateException. (str "Could not find definition for field " (:name query))))))
 

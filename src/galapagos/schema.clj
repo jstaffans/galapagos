@@ -91,18 +91,21 @@
              (merge (extract-introspection-metadata name t) {:kind :INTERFACE}))
       (merge ~t {:fields ~fields-with-metadata :possibleTypes #{}}))))
 
+(defn qualify-name
+  [name]
+  (str *ns* "/" name))
+
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
-  [name interfaces t]
-  (let [qualified-interface-names (mapv #(str *ns* "/" %) interfaces)
-        qualified-type-name (str *ns* "/" name)
+  [name interface-names t]
+  (let [qualified-type-name (qualify-name name)
+        interfaces (mapv #(-> % qualify-name symbol find-var) interface-names)
         field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(do
        (def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :OBJECT}))
          (merge ~t
-           {:interfaces (mapv (comp find-var symbol) ~qualified-interface-names)}
-           {:interface-definitions (mapv symbol ~qualified-interface-names)}
+           {:interfaces ~interfaces}
            {:fields ~fields-with-metadata}))
        (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)}))
        (doseq [i# (:interfaces ~name)]
@@ -112,9 +115,10 @@
   "Define a union of previously defined types."
   [name ts]
   `(def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name {}) {:kind :UNION}))
-     {:fields                (into {} (map :fields ~ts))
-      :interfaces            (mapcat :interfaces ~ts)
-      :interface-definitions (mapcat :interface-definitions ~ts)}))
+     {:foo           :bar
+      :fields        (into {} (map :fields ~ts))
+      :interfaces    (into #{} (mapcat :interfaces ~ts))
+      :possibleTypes ~(into #{} (mapv qualify-name ts))}))
 
 (defmacro deffield
   "Defines a field that fetches something. The type will depend on what the field returns."

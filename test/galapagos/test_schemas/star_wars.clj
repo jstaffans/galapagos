@@ -45,7 +45,7 @@
 ;;   name: String
 ;;   friends: [Character]
 ;;   appearsIn: [Episode]
-;; }
+;;
 
 (declare FindFriends FindAppearsIn)
 
@@ -86,6 +86,5 @@
                           ids)))))})
 
 (schema/defroot QueryRoot
-  {:fields [:character FindCharacter]
-   :interfaces {:MovieCharacter #'MovieCharacter}})
+  {:fields [:character FindCharacter]})
 
