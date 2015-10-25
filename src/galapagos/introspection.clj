@@ -18,7 +18,7 @@
 
 (declare FindFields FindEmpty FindEmptyList FindArgs FindFields)
 
-(schema/deftype TypeDescription [TypeInterface]
+(schema/deftype TypeDescription []
   {:fields [:name schema/GraphQLString
             :kind TypeKind
             :description schema/GraphQLString
