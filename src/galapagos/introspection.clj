@@ -269,7 +269,7 @@
       (doseq [t (-> type :possibleTypes)]
         (register-type! types
           :type (-> t symbol find-var deref)
-          :metadata (-> t symbol find-var meta)))
+          :metadata (-> t symbol find-var meta :introspection)))
 
       ;; Register possible implementations of unions
       (doseq [t (some-> type :type-definition :possibleTypes)]

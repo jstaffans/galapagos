@@ -70,10 +70,13 @@
   [solution]
   (util/apply-1 #(assoc {} schema/it-key %) solution))
 
-(defn- empty-coll?
+(defn- empty-result?
   "Check if v, if a coll, is empty. Returns false if v is not a coll."
-  [v]
-  (and (coll? v) (empty? v)))
+  [result]
+  (or
+    (nil? result)
+    (and (map? result) (coll? (vals result)) (every? empty? (vals result)))
+    (and (coll? result) (empty? result))))
 
 (defn- filter-not-required
   "Set non-required fields to be empty in the parent object."
@@ -82,7 +85,7 @@
   (reduce-kv
     (fn [acc k v]
       (let [required? (get-in node [:fields k :required?])]
-        (if (and (false? required?) (or (nil? v) (empty-coll? v))) acc (assoc acc k v))))
+        (if (and (false? required?) (empty-result? v)) acc (assoc acc k v))))
     {}
     result))
 
@@ -108,7 +111,8 @@
   ResultAccumulator
   ;; At solvable nodes, we introduce a new level of nesting
   (acc-fn [_]
-    #(assoc {} (resolve-name query) (util/apply-1 (partial filter-not-required node) %)))
+    #(let [result (assoc {} (resolve-name query) (util/apply-1 (partial filter-not-required node) %))]
+      (if (empty? result) nil result)))
 
   Visited
   (arity [_] (:arity node))
