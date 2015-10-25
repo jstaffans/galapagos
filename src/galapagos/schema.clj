@@ -86,14 +86,17 @@
   (let [field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
 
-    `(def ~(vary-meta name assoc :introspection (merge (extract-introspection-metadata name t) {:kind :INTERFACE}))
-      (merge ~t {:fields ~fields-with-metadata}))))
+    `(def ~(vary-meta name assoc
+             :introspection
+             (merge (extract-introspection-metadata name t) {:kind :INTERFACE}))
+      (merge ~t {:fields ~fields-with-metadata :possibleTypes #{}}))))
 
 (defmacro deftype
   "Define a type corresponding to the GraphQL object type."
   [name interfaces t]
   (let [interface-names (mapv str interfaces)
         qualified-interface-names (mapv #(str *ns* "/" %) interfaces)
+        qualified-type-name (str *ns* "/" name)
         field-map (helpers/to-field-map (:fields t))
         fields-with-metadata (fields-with-introspection-metadata field-map)]
     `(do
@@ -102,7 +105,9 @@
            {:interfaces (mapv keyword ~interface-names)}
            {:interface-definitions (mapv symbol ~qualified-interface-names)}
            {:fields ~fields-with-metadata}))
-       (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)})))))
+       (defn ~(symbol (str '-> name)) [v#] (with-meta v# {:type ~(keyword name)}))
+       (doseq [i# (map (comp find-var symbol) ~qualified-interface-names)]
+         (alter-var-root i# #(update % :possibleTypes (fn [v#] (conj v# ~(find-var (symbol qualified-type-name))))))))))
 
 (defmacro defunion
   "Define a union of previously defined types."
