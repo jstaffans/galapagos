@@ -82,7 +82,8 @@
       (core/execute!! blog-schema
         "{ __schema { directives, mutationType { name } } }")
       :data := {:__schema
-                {:directives []}}))
+                {:directives []
+                 :mutationType nil}}))
 
   (testing "Of type"
     (given
@@ -92,4 +93,4 @@
                 {:fields
                  [{:type {:ofType {:name :PreferredEditor}}}
                   {:type {:ofType {:name :Float}}}
-                  {:type {}}]}})))
+                  {:type {:ofType nil}}]}})))
