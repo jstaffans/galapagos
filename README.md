@@ -12,18 +12,13 @@ streamlined, concurrent data fetching is provided by the [muse](https://github.c
 
 See [links](https://github.com/jstaffans/galapagos/blob/master/links.md) for more information on GraphQL and the ideas behind it.
 
-## Development
-
-To help in understanding the internals of Galapagos, there's an [annotated overview](http://jstaffans.github.io/galapagos/) of the
-source code in the spirit of literate programming.
-
 ## Status
 
 Galapagos is still very much pre-alpha software and nearly everything is subject to change.
+The first iteration suffers from two problems:
 
-### Schema definition
-
-The schema definition DSL is still a work-in-progress and a bit clunky in places.
+* The schema is defined using a rather complicated, macro-based DSL. There's a lot of metadata being attached to the symbols that make up the various type definitions, which makes schema introspection overly complex. It would be better to just use straight-up Clojure data structures.
+* Data fetching has to happen using core.async. This is a design choice that a library like this should not make.
 
 ### Queries
 
